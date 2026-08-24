@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#334155">
+  <meta name="description" content="A simple five-box Leitner flashcard app that stores your cards in your browser.">
+  <title>Simple Leitner Flashcards</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <div>
+        <p class="eyebrow">Five-box study</p>
+        <h1>Simple Leitner Flashcards</h1>
+      </div>
+      <p id="save-indicator" class="save-indicator" aria-live="polite">Saved in this browser</p>
+    </div>
+  </header>
+
+  <div class="shell app-shell">
+    <section class="box-overview" aria-label="Card boxes">
+      <div class="box-stat box-stat-inbox">
+        <span class="box-name">Inbox</span>
+        <strong id="box-count-0">0</strong>
+        <span class="box-detail">Not started</span>
+      </div>
+      <div class="box-stat">
+        <span class="box-name">Box 1</span>
+        <strong id="box-count-1">0</strong>
+        <span class="box-detail">1 day</span>
+      </div>
+      <div class="box-stat">
+        <span class="box-name">Box 2</span>
+        <strong id="box-count-2">0</strong>
+        <span class="box-detail">2 days</span>
+      </div>
+      <div class="box-stat">
+        <span class="box-name">Box 3</span>
+        <strong id="box-count-3">0</strong>
+        <span class="box-detail">4 days</span>
+      </div>
+      <div class="box-stat">
+        <span class="box-name">Box 4</span>
+        <strong id="box-count-4">0</strong>
+        <span class="box-detail">8 days</span>
+      </div>
+      <div class="box-stat">
+        <span class="box-name">Box 5</span>
+        <strong id="box-count-5">0</strong>
+        <span class="box-detail">16 days</span>
+      </div>
+    </section>
+
+    <nav class="tabs" aria-label="Flashcard sections">
+      <button class="tab is-active" type="button" data-view="study" aria-selected="true">Study</button>
+      <button class="tab" type="button" data-view="cards" aria-selected="false">Cards</button>
+      <button class="tab" type="button" data-view="storage" aria-selected="false">Save &amp; Load</button>
+    </nav>
+
+    <main id="main-content">
+      <section id="view-study" class="view" aria-labelledby="study-heading">
+        <div class="section-heading">
+          <div>
+            <h2 id="study-heading">Study</h2>
+            <p id="study-summary" class="muted">No cards are due.</p>
+          </div>
+          <button id="refresh-study" class="button button-quiet" type="button">Refresh session</button>
+        </div>
+
+        <div id="study-card-area" class="study-card-area" hidden>
+          <p id="session-progress" class="session-progress"></p>
+          <button id="flashcard" class="flashcard" type="button" aria-describedby="card-instruction">
+            <span id="card-side-label" class="card-side-label">Side A</span>
+            <span id="card-text" class="card-text"></span>
+          </button>
+          <p id="card-instruction" class="card-instruction">Select the card or press Space to show Side B.</p>
+
+          <div id="reveal-actions" class="center-actions">
+            <button id="show-answer" class="button button-primary button-large" type="button">Show Side B</button>
+          </div>
+
+          <div id="grade-actions" class="grade-actions" hidden>
+            <button id="mark-again" class="button button-again button-large" type="button">
+              Again
+              <span>Press 1</span>
+            </button>
+            <button id="mark-correct" class="button button-correct button-large" type="button">
+              Got it
+              <span>Press 2</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="study-empty" class="empty-state">
+          <h3 id="study-empty-title">No cards yet</h3>
+          <p id="study-empty-text">Add your first card to begin.</p>
+          <button id="study-empty-action" class="button button-primary" type="button">Add a card</button>
+        </div>
+      </section>
+
+      <section id="view-cards" class="view" aria-labelledby="cards-heading" hidden>
+        <div class="section-heading">
+          <div>
+            <h2 id="cards-heading">Cards</h2>
+            <p class="muted">New cards wait in the Inbox until a study session introduces them.</p>
+          </div>
+        </div>
+
+        <form id="card-form" class="panel card-form">
+          <div class="form-heading">
+            <h3 id="card-form-title">Add a card</h3>
+            <p class="muted">Plain text only.</p>
+          </div>
+
+          <label for="side-a">Side A</label>
+          <textarea id="side-a" name="sideA" rows="3" maxlength="4000" required></textarea>
+
+          <label for="side-b">Side B</label>
+          <textarea id="side-b" name="sideB" rows="3" maxlength="4000" required></textarea>
+
+          <div class="form-actions">
+            <button id="save-card" class="button button-primary" type="submit">Add card</button>
+            <button id="cancel-edit" class="button button-quiet" type="button" hidden>Cancel edit</button>
+          </div>
+        </form>
+
+        <div class="card-list-heading">
+          <div>
+            <h3>Your cards</h3>
+            <p id="card-list-count" class="muted">0 cards</p>
+          </div>
+          <label class="search-field" for="card-search">
+            <span>Search</span>
+            <input id="card-search" type="search" autocomplete="off" placeholder="Find text">
+          </label>
+        </div>
+
+        <div id="card-list" class="card-list"></div>
+        <p id="card-list-empty" class="empty-list">No cards have been added.</p>
+      </section>
+
+      <section id="view-storage" class="view" aria-labelledby="storage-heading" hidden>
+        <div class="section-heading">
+          <div>
+            <h2 id="storage-heading">Save &amp; Load</h2>
+            <p class="muted">Your deck saves automatically in this browser. A file gives you a portable backup.</p>
+          </div>
+        </div>
+
+        <div class="storage-grid">
+          <section class="panel storage-panel">
+            <h3>Browser storage</h3>
+            <p id="browser-storage-message">Every change is saved automatically on this device.</p>
+            <dl class="deck-details">
+              <div>
+                <dt>Total cards</dt>
+                <dd id="storage-total">0</dd>
+              </div>
+              <div>
+                <dt>Due now</dt>
+                <dd id="storage-due">0</dd>
+              </div>
+              <div>
+                <dt>Last saved</dt>
+                <dd id="storage-last-saved">Not yet</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="panel storage-panel">
+            <h3>Backup file</h3>
+            <p>Save the complete deck and its study progress as a JSON file, or load a previous backup.</p>
+            <div class="stacked-actions">
+              <button id="export-deck" class="button button-primary" type="button">Save deck to file</button>
+              <button id="choose-import" class="button button-secondary" type="button">Load deck from file</button>
+              <input id="import-deck" type="file" accept="application/json,.json" hidden>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel danger-panel">
+          <div>
+            <h3>Start over</h3>
+            <p>Remove every card from this browser.</p>
+          </div>
+          <button id="clear-deck" class="button button-danger" type="button">Delete all cards</button>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <div class="shell">
+      <p>Correct answers move cards forward. “Again” returns a card to Box 1. Up to 10 Inbox cards enter the system each day.</p>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+
+  <noscript>
+    <p class="noscript">This flashcard app requires JavaScript.</p>
+  </noscript>
+
+  <script src="core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

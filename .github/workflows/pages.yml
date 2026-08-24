@@ -1,4 +1,4 @@
-name: Test and deploy GitHub Pages
+name: Test and publish GitHub Pages
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: github-pages
+  group: leitner-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,36 +29,54 @@ jobs:
       - name: Verify JavaScript and scheduling logic
         run: npm run verify
 
-  deploy:
+  publish:
     if: github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Prepare static site
         run: |
-          mkdir _site
-          cp index.html styles.css core.js app.js favicon.svg _site/
+          site_dir="$RUNNER_TEMP/leitner-site"
+          mkdir -p "$site_dir"
+          cp index.html styles.css core.js app.js favicon.svg .nojekyll "$site_dir/"
+          printf '%s\n' "$GITHUB_SHA" > "$site_dir/.build-version"
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v6
+      - name: Publish verified static files
+        run: |
+          site_dir="$RUNNER_TEMP/leitner-site"
+          git fetch origin gh-pages
+          git checkout --detach origin/gh-pages
+          git rm -rf .
+          cp -a "$site_dir"/. .
+          git add --all
+
+          if git diff --cached --quiet; then
+            echo "The published files are already current."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Publish ${GITHUB_SHA}"
+            git push origin HEAD:gh-pages
+          fi
+
+      - name: Request GitHub Pages build
+        uses: actions/github-script@v9
         with:
-          enablement: true
-
-      - name: Upload static site
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: _site
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          script: |
+            const { owner, repo } = context.repo;
+            await github.request('POST /repos/{owner}/{repo}/pages/builds', {
+              owner,
+              repo,
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
+            });
+            core.info(`Requested a Pages build for ${context.sha}.`);

@@ -52,7 +52,9 @@ npm run verify
 
 ## Deployment
 
-The workflow in `.github/workflows/pages.yml` tests the app and deploys the static files to GitHub Pages whenever `main` changes. GitHub Pages must use **GitHub Actions** as its publishing source.
+`main` is the source branch. Every pull request and every change to `main` runs the automated checks in `.github/workflows/pages.yml`.
+
+After a successful `main` run, the workflow publishes only the browser-ready static files to `gh-pages` and requests a GitHub Pages rebuild. The production site is served from the root of the `gh-pages` branch. No server, database, account, build service, or runtime dependency is required.
 
 ## License
 

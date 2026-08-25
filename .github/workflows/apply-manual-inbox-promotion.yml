@@ -1,0 +1,316 @@
+name: Apply manual Inbox promotion update
+
+on:
+  push:
+    branches: [feature/manual-inbox-promotion]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Apply Inbox behavior update
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          def read(path):
+              return Path(path).read_text()
+
+          def write(path, text):
+              Path(path).write_text(text)
+
+          def replace_once(path, old, new):
+              text = read(path)
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old[:80]!r}")
+              write(path, text.replace(old, new, 1))
+
+          def sub_once(path, pattern, replacement):
+              text = read(path)
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one regex match in {path}, found {count}: {pattern[:100]!r}")
+              write(path, updated)
+
+          # core.js: Inbox is manual staging only; move five oldest cards to Box 1 on demand.
+          replace_once("core.js", "  const NEW_CARDS_PER_DAY = 10;", "  const INBOX_PROMOTION_COUNT = 5;")
+
+          new_queue_and_promotion = "\n".join([
+              "  function buildStudyQueue(cards, today = localDateString()) {",
+              "    return cards",
+              "      .filter((card) => card.box > 0 && card.dueDate && card.dueDate <= today)",
+              "      .slice()",
+              "      .sort(compareCardsForStudy)",
+              "      .map((card) => card.id);",
+              "  }",
+              "",
+              "  function promoteInboxCards(cards, count = INBOX_PROMOTION_COUNT, today = localDateString(), now = new Date()) {",
+              "    if (!Array.isArray(cards)) {",
+              "      throw new TypeError(\"Cards must be an array.\");",
+              "    }",
+              "",
+              "    const numericCount = Number(count);",
+              "    if (!Number.isInteger(numericCount) || numericCount < 0) {",
+              "      throw new TypeError(\"Promotion count must be a non-negative integer.\");",
+              "    }",
+              "",
+              "    const timestamp = new Date(now).toISOString();",
+              "    const selectedIds = new Set(",
+              "      cards",
+              "        .filter((card) => card.box === 0)",
+              "        .slice()",
+              "        .sort((left, right) => left.createdAt.localeCompare(right.createdAt))",
+              "        .slice(0, numericCount)",
+              "        .map((card) => card.id),",
+              "    );",
+              "",
+              "    return cards.map((rawCard, index) => {",
+              "      if (!selectedIds.has(rawCard.id)) {",
+              "        return rawCard;",
+              "      }",
+              "",
+              "      const card = normalizeCard(rawCard, index, now);",
+              "      card.box = 1;",
+              "      card.dueDate = today;",
+              "      card.introducedAt = timestamp;",
+              "      card.updatedAt = timestamp;",
+              "      return card;",
+              "    });",
+              "  }",
+          ])
+          sub_once(
+              "core.js",
+              r"  function buildStudyQueue\(cards, today = localDateString\(\), newCardLimit = NEW_CARDS_PER_DAY\) \{.*?\n  \}\n\n  function answerCard",
+              new_queue_and_promotion + "\n\n  function answerCard",
+          )
+
+          sub_once(
+              "core.js",
+              r"\n    const introducedToday = countIntroducedOn\(cards, today\);\n\n    return \{.*?\n    \};\n  \}\n\n  return Object\.freeze",
+              "\n    return {\n      total: cards.length,\n      byBox,\n      due,\n      overdue,\n      inbox: byBox[0],\n    };\n  }\n\n  return Object.freeze",
+          )
+          replace_once("core.js", "    NEW_CARDS_PER_DAY,", "    INBOX_PROMOTION_COUNT,")
+          replace_once("core.js", "    buildStudyQueue,\n    answerCard,", "    buildStudyQueue,\n    promoteInboxCards,\n    answerCard,")
+
+          # app.js: make Inbox tile interactive and refresh study immediately after promotion.
+          replace_once(
+              "app.js",
+              "    saveIndicator: document.querySelector(\"#save-indicator\"),\n    boxCounts:",
+              "    saveIndicator: document.querySelector(\"#save-indicator\"),\n    inboxPromote: document.querySelector(\"#inbox-promote\"),\n    boxCounts:",
+          )
+
+          old_render_stats = "\n".join([
+              "  function renderStats() {",
+              "    const stats = Core.getStats(state.cards);",
+              "    stats.byBox.forEach((count, index) => {",
+              "      elements.boxCounts[index].textContent = String(count);",
+              "    });",
+              "  }",
+          ])
+          new_render_stats = "\n".join([
+              "  function renderStats() {",
+              "    const stats = Core.getStats(state.cards);",
+              "    stats.byBox.forEach((count, index) => {",
+              "      elements.boxCounts[index].textContent = String(count);",
+              "    });",
+              "    elements.inboxPromote.disabled = stats.byBox[0] === 0;",
+              "  }",
+              "",
+              "  function promoteInboxCards() {",
+              "    const inboxCount = Core.getStats(state.cards).byBox[0];",
+              "    if (inboxCount === 0) {",
+              "      return;",
+              "    }",
+              "",
+              "    const promotedCount = Math.min(Core.INBOX_PROMOTION_COUNT, inboxCount);",
+              "    state.cards = Core.promoteInboxCards(state.cards);",
+              "    persistState({ silent: true });",
+              "    renderAll();",
+              "    showToast(`Moved ${promotedCount} ${pluralize(\"card\", promotedCount)} from the Inbox to Box 1. Ready to study.`);",
+              "  }",
+          ])
+          replace_once("app.js", old_render_stats, new_render_stats)
+
+          replace_once(
+              "app.js",
+              "    elements.studySummary.textContent = `${stats.due} due · ${stats.newCardsAvailable} new available today`;",
+              "    elements.studySummary.textContent = `${stats.due} due · ${stats.byBox[0]} in Inbox`;",
+          )
+
+          old_inbox_empty = "\n".join([
+              "    if (stats.byBox[0] > 0 && stats.newCardsAvailable === 0) {",
+              "      elements.studySummary.textContent = \"Nothing else is due today.\";",
+              "      elements.studyEmptyTitle.textContent = \"You are done for today\";",
+              "      elements.studyEmptyText.textContent = `The daily limit of ${Core.NEW_CARDS_PER_DAY} new cards has been reached.`;",
+              "      elements.studyEmptyAction.textContent = \"Manage cards\";",
+              "      elements.studyEmptyAction.dataset.action = \"add\";",
+              "      return;",
+              "    }",
+          ])
+          new_inbox_empty = "\n".join([
+              "    if (stats.byBox[0] > 0) {",
+              "      elements.studySummary.textContent = `Nothing is due · ${stats.byBox[0]} in Inbox.`;",
+              "      elements.studyEmptyTitle.textContent = \"Inbox cards are waiting\";",
+              "      elements.studyEmptyText.textContent = `Use the Inbox button above to move up to ${Core.INBOX_PROMOTION_COUNT} cards into Box 1.`;",
+              "      elements.studyEmptyAction.textContent = \"Manage cards\";",
+              "      elements.studyEmptyAction.dataset.action = \"add\";",
+              "      return;",
+              "    }",
+          ])
+          replace_once("app.js", old_inbox_empty, new_inbox_empty)
+
+          replace_once(
+              "app.js",
+              "        newCardsPerDay: Core.NEW_CARDS_PER_DAY,",
+              "        inboxPromotionCount: Core.INBOX_PROMOTION_COUNT,",
+          )
+          replace_once(
+              "app.js",
+              "    elements.refreshStudy.addEventListener(\"click\", startStudySession);",
+              "    elements.inboxPromote.addEventListener(\"click\", promoteInboxCards);\n    elements.refreshStudy.addEventListener(\"click\", startStudySession);",
+          )
+
+          # index.html: turn the Inbox tile itself into the promotion button.
+          old_inbox_tile = "\n".join([
+              "      <div class=\"box-stat box-stat-inbox\">",
+              "        <span class=\"box-name\">Inbox</span>",
+              "        <strong id=\"box-count-0\">0</strong>",
+              "        <span class=\"box-detail\">Not started</span>",
+              "      </div>",
+          ])
+          new_inbox_tile = "\n".join([
+              "      <button id=\"inbox-promote\" class=\"box-stat box-stat-inbox\" type=\"button\" aria-label=\"Move up to 5 cards from Inbox to Box 1\">",
+              "        <span class=\"box-name\">Inbox</span>",
+              "        <strong id=\"box-count-0\">0</strong>",
+              "        <span class=\"box-detail\">Move 5 → Box 1</span>",
+              "      </button>",
+          ])
+          replace_once("index.html", old_inbox_tile, new_inbox_tile)
+          replace_once(
+              "index.html",
+              "            <p class=\"muted\">New cards wait in the Inbox until a study session introduces them.</p>",
+              "            <p class=\"muted\">New cards stay in the Inbox until you move them to Box 1.</p>",
+          )
+          replace_once(
+              "index.html",
+              "      <p>Again returns a card to Box 1. Hard keeps its box. Good advances one box. Easy advances two. Up to 10 Inbox cards enter the system each day.</p>",
+              "      <p>Inbox cards do not enter Study automatically. Use the Inbox button to move five at a time into Box 1. Again returns a card to Box 1; Hard stays; Good advances one; Easy advances two.</p>",
+          )
+
+          # styles.css: make the Inbox tile visibly interactive while preserving its existing tile design.
+          replace_once(
+              "styles.css",
+              " .box-stat-inbox {\n  background: var(--surface-soft);\n}\n" if False else ".box-stat-inbox {\n  background: var(--surface-soft);\n}\n",
+              ".box-stat-inbox {\n  background: var(--surface-soft);\n  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;\n}\n\n.box-stat-inbox:not(:disabled):hover {\n  transform: translateY(-1px);\n  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));\n  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.08);\n}\n\n.box-stat-inbox:disabled {\n  cursor: default;\n  opacity: 0.62;\n}\n",
+          )
+
+          # tests: Inbox is excluded from Study and promotion moves the five oldest cards.
+          replace_once(
+              "tests/core.test.js",
+              "  assert.equal(Core.NEW_CARDS_PER_DAY, 10);",
+              "  assert.equal(Core.INBOX_PROMOTION_COUNT, 5);",
+          )
+
+          new_queue_tests = '''test("study queue includes due Leitner cards but never Inbox cards", () => {
+            const cards = [
+              cardInBox(2, "2026-08-23", { id: "overdue" }),
+              cardInBox(1, TODAY, { id: "due" }),
+              cardInBox(3, "2026-08-25", { id: "future" }),
+            ];
+
+            for (let index = 0; index < 12; index += 1) {
+              cards.push({
+                ...Core.createCard(
+                  `New ${index}`,
+                  `Answer ${index}`,
+                  new Date(`2026-08-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`),
+                ),
+                id: `new-${index}`,
+              });
+            }
+
+            const queue = Core.buildStudyQueue(cards, TODAY);
+            assert.deepEqual(queue, ["overdue", "due"]);
+            assert.equal(queue.includes("future"), false);
+            assert.equal(queue.some((id) => id.startsWith("new-")), false);
+          });
+
+          test("promoting Inbox cards moves the five oldest to Box 1 due today", () => {
+            const cards = [];
+            for (let index = 0; index < 7; index += 1) {
+              cards.push({
+                ...Core.createCard(
+                  `Inbox ${index}`,
+                  `Back ${index}`,
+                  new Date(`2026-08-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`),
+                ),
+                id: `inbox-${index}`,
+              });
+            }
+            cards.push(cardInBox(2, "2026-08-26", { id: "existing" }));
+
+            const promoted = Core.promoteInboxCards(cards, Core.INBOX_PROMOTION_COUNT, TODAY, NOW);
+            assert.deepEqual(
+              promoted.filter((card) => card.id.startsWith("inbox-") && card.box === 1).map((card) => card.id),
+              ["inbox-0", "inbox-1", "inbox-2", "inbox-3", "inbox-4"],
+            );
+            assert.deepEqual(
+              promoted.filter((card) => card.box === 0).map((card) => card.id),
+              ["inbox-5", "inbox-6"],
+            );
+            for (const card of promoted.filter((item) => item.id.startsWith("inbox-") && item.box === 1)) {
+              assert.equal(card.dueDate, TODAY);
+              assert.equal(card.reviewCount, 0);
+              assert.ok(card.introducedAt);
+            }
+            const existing = promoted.find((card) => card.id === "existing");
+            assert.equal(existing.box, 2);
+            assert.equal(existing.dueDate, "2026-08-26");
+          });'''
+          sub_once(
+              "tests/core.test.js",
+              r'test\("study queue includes due cards first and limits new cards".*?\n\}\);\n\ntest\("reset clears study progress',
+              new_queue_tests + '\n\ntest("reset clears study progress',
+          )
+
+          # README: document manual Inbox promotion and remove automatic-new-card wording.
+          replace_once(
+              "README.md",
+              "New cards begin in an **Inbox**. A study session introduces up to **10 new cards per day**, after all cards that are due have been placed in the queue.",
+              "New cards begin in an **Inbox** and never enter Study automatically. The Inbox tile is a button: click it to move the **5 oldest Inbox cards** into **Box 1**, where they are due immediately and ready to study.",
+          )
+          replace_once(
+              "README.md",
+              "| 2 | Hard | The card stays in its current box. A new card enters Box 1. |\n| 3 | Good | The card advances one box. A new card enters Box 1. |\n| 4 | Easy | The card advances two boxes. A new card enters Box 2. |",
+              "| 2 | Hard | The card stays in its current box. |\n| 3 | Good | The card advances one box. |\n| 4 | Easy | The card advances two boxes. |",
+          )
+
+      - name: Verify application
+        run: npm run verify
+
+      - name: Ensure obsolete automatic-Inbox logic is gone
+        run: |
+          ! grep -R "NEW_CARDS_PER_DAY\|newCardsAvailable\|newCardsPerDay" -- core.js app.js tests/core.test.js README.md index.html
+
+      - name: Commit tested update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app.js core.js index.html styles.css README.md tests/core.test.js
+          git commit -m "Make Inbox manual staging with five-card promotion"
+          git push origin HEAD:feature/manual-inbox-promotion

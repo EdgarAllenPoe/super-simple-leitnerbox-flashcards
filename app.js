@@ -255,7 +255,7 @@
     elements.cardText.textContent = visibleSide.text;
     elements.showAnswer.textContent = `Show ${sides.second.label}`;
     elements.cardInstruction.textContent = answerRevealed
-      ? "Choose Again, Hard, Good, or Easy. Keys 1–4 also work."
+      ? "How did that feel? Choose a response or press 1–4."
       : `Select the card or press Space to show ${sides.second.label}.`;
 
     elements.studyCardArea.hidden = false;
@@ -552,13 +552,8 @@
       exportedAt: new Date().toISOString(),
       schedule: {
         inboxPromotionCount: Core.INBOX_PROMOTION_COUNT,
-        boxIntervalsDays: [1, 2, 4, 8, 16],
-        ratings: {
-          again: "Box 1",
-          hard: "same box",
-          good: "advance one box",
-          easy: "advance two boxes",
-        },
+        boxIntervalsDays: Object.values(Core.BOX_INTERVAL_DAYS),
+        ratings: Core.RATING_LABELS,
       },
       cards: state.cards,
     };

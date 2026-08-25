@@ -12,7 +12,7 @@
   "use strict";
 
   const SCHEMA_VERSION = 1;
-  const NEW_CARDS_PER_DAY = 10;
+  const INBOX_PROMOTION_COUNT = 5;
   const BOX_INTERVAL_DAYS = Object.freeze({
     1: 1,
     2: 2,
@@ -284,22 +284,46 @@
     return left.createdAt.localeCompare(right.createdAt);
   }
 
-  function buildStudyQueue(cards, today = localDateString(), newCardLimit = NEW_CARDS_PER_DAY) {
-    const dueCards = cards
+  function buildStudyQueue(cards, today = localDateString()) {
+    return cards
       .filter((card) => card.box > 0 && card.dueDate && card.dueDate <= today)
       .slice()
-      .sort(compareCardsForStudy);
+      .sort(compareCardsForStudy)
+      .map((card) => card.id);
+  }
 
-    const introducedToday = countIntroducedOn(cards, today);
-    const remainingNewSlots = Math.max(0, Number(newCardLimit) - introducedToday);
+  function promoteInboxCards(cards, count = INBOX_PROMOTION_COUNT, today = localDateString(), now = new Date()) {
+    if (!Array.isArray(cards)) {
+      throw new TypeError("Cards must be an array.");
+    }
 
-    const newCards = cards
-      .filter((card) => card.box === 0)
-      .slice()
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-      .slice(0, remainingNewSlots);
+    const numericCount = Number(count);
+    if (!Number.isInteger(numericCount) || numericCount < 0) {
+      throw new TypeError("Promotion count must be a non-negative integer.");
+    }
 
-    return [...dueCards, ...newCards].map((card) => card.id);
+    const timestamp = new Date(now).toISOString();
+    const selectedIds = new Set(
+      cards
+        .filter((card) => card.box === 0)
+        .slice()
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+        .slice(0, numericCount)
+        .map((card) => card.id),
+    );
+
+    return cards.map((rawCard, index) => {
+      if (!selectedIds.has(rawCard.id)) {
+        return rawCard;
+      }
+
+      const card = normalizeCard(rawCard, index, now);
+      card.box = 1;
+      card.dueDate = today;
+      card.introducedAt = timestamp;
+      card.updatedAt = timestamp;
+      return card;
+    });
   }
 
   function answerCard(rawCard, rawRating, today = localDateString(), now = new Date()) {
@@ -366,24 +390,18 @@
       }
     }
 
-    const introducedToday = countIntroducedOn(cards, today);
-
     return {
       total: cards.length,
       byBox,
       due,
       overdue,
-      introducedToday,
-      newCardsAvailable: Math.min(
-        byBox[0],
-        Math.max(0, NEW_CARDS_PER_DAY - introducedToday),
-      ),
+      inbox: byBox[0],
     };
   }
 
   return Object.freeze({
     SCHEMA_VERSION,
-    NEW_CARDS_PER_DAY,
+    INBOX_PROMOTION_COUNT,
     BOX_INTERVAL_DAYS,
     RATING_ORDER,
     RATING_KEYS,
@@ -397,6 +415,7 @@
     normalizeState,
     countIntroducedOn,
     buildStudyQueue,
+    promoteInboxCards,
     answerCard,
     resetCard,
     resetAllCards,

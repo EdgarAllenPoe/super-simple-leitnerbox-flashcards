@@ -24,11 +24,11 @@
 
   <div class="shell app-shell">
     <section class="box-overview" aria-label="Card boxes">
-      <div class="box-stat box-stat-inbox">
+      <button id="inbox-promote" class="box-stat box-stat-inbox" type="button" aria-label="Move up to 5 cards from Inbox to Box 1">
         <span class="box-name">Inbox</span>
         <strong id="box-count-0">0</strong>
-        <span class="box-detail">Not started</span>
-      </div>
+        <span class="box-detail">Move 5 → Box 1</span>
+      </button>
       <div class="box-stat">
         <span class="box-name">Box 1</span>
         <strong id="box-count-1">0</strong>
@@ -130,7 +130,7 @@
         <div class="section-heading">
           <div>
             <h2 id="cards-heading">Cards</h2>
-            <p class="muted">New cards wait in the Inbox until a study session introduces them.</p>
+            <p class="muted">New cards stay in the Inbox until you move them to Box 1.</p>
           </div>
         </div>
 
@@ -227,7 +227,7 @@
 
   <footer class="site-footer">
     <div class="shell">
-      <p>Again returns a card to Box 1. Hard keeps its box. Good advances one box. Easy advances two. Up to 10 Inbox cards enter the system each day.</p>
+      <p>Inbox cards do not enter Study automatically. Use the Inbox button to move five at a time into Box 1. Again returns a card to Box 1; Hard stays; Good advances one; Easy advances two.</p>
     </div>
   </footer>
 

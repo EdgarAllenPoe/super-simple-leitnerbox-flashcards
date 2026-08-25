@@ -12,6 +12,7 @@
     tabs: Array.from(document.querySelectorAll(".tab")),
     views: Array.from(document.querySelectorAll(".view")),
     saveIndicator: document.querySelector("#save-indicator"),
+    inboxPromote: document.querySelector("#inbox-promote"),
     boxCounts: Array.from({ length: 6 }, (_, index) => document.querySelector(`#box-count-${index}`)),
     studySummary: document.querySelector("#study-summary"),
     refreshStudy: document.querySelector("#refresh-study"),
@@ -156,6 +157,20 @@
     stats.byBox.forEach((count, index) => {
       elements.boxCounts[index].textContent = String(count);
     });
+    elements.inboxPromote.disabled = stats.byBox[0] === 0;
+  }
+
+  function promoteInboxCards() {
+    const inboxCount = Core.getStats(state.cards).byBox[0];
+    if (inboxCount === 0) {
+      return;
+    }
+
+    const promotedCount = Math.min(Core.INBOX_PROMOTION_COUNT, inboxCount);
+    state.cards = Core.promoteInboxCards(state.cards);
+    persistState({ silent: true });
+    renderAll();
+    showToast(`Moved ${promotedCount} ${pluralize("card", promotedCount)} from the Inbox to Box 1. Ready to study.`);
   }
 
   function renderStudyDirection() {
@@ -234,7 +249,7 @@
     const remainingIncludingCurrent = studyQueue.length + 1;
     const currentNumber = sessionCompleted + 1;
 
-    elements.studySummary.textContent = `${stats.due} due · ${stats.newCardsAvailable} new available today`;
+    elements.studySummary.textContent = `${stats.due} due · ${stats.byBox[0]} in Inbox`;
     elements.sessionProgress.textContent = `Card ${currentNumber} of ${sessionTotal} · ${remainingIncludingCurrent} remaining`;
     elements.cardSideLabel.textContent = visibleSide.label;
     elements.cardText.textContent = visibleSide.text;
@@ -283,10 +298,10 @@
       return;
     }
 
-    if (stats.byBox[0] > 0 && stats.newCardsAvailable === 0) {
-      elements.studySummary.textContent = "Nothing else is due today.";
-      elements.studyEmptyTitle.textContent = "You are done for today";
-      elements.studyEmptyText.textContent = `The daily limit of ${Core.NEW_CARDS_PER_DAY} new cards has been reached.`;
+    if (stats.byBox[0] > 0) {
+      elements.studySummary.textContent = `Nothing is due · ${stats.byBox[0]} in Inbox.`;
+      elements.studyEmptyTitle.textContent = "Inbox cards are waiting";
+      elements.studyEmptyText.textContent = `Use the Inbox button above to move up to ${Core.INBOX_PROMOTION_COUNT} cards into Box 1.`;
       elements.studyEmptyAction.textContent = "Manage cards";
       elements.studyEmptyAction.dataset.action = "add";
       return;
@@ -536,7 +551,7 @@
       version: Core.SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
       schedule: {
-        newCardsPerDay: Core.NEW_CARDS_PER_DAY,
+        inboxPromotionCount: Core.INBOX_PROMOTION_COUNT,
         boxIntervalsDays: [1, 2, 4, 8, 16],
         ratings: {
           again: "Box 1",
@@ -700,6 +715,7 @@
       button.addEventListener("click", () => gradeCurrentCard(button.dataset.rating));
     }
 
+    elements.inboxPromote.addEventListener("click", promoteInboxCards);
     elements.refreshStudy.addEventListener("click", startStudySession);
     elements.flashcard.addEventListener("click", revealAnswer);
     elements.showAnswer.addEventListener("click", revealAnswer);

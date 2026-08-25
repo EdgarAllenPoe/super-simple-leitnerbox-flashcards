@@ -176,6 +176,18 @@ h3 {
 
 .box-stat-inbox {
   background: var(--surface-soft);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.box-stat-inbox:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.08);
+}
+
+.box-stat-inbox:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .box-stat strong {

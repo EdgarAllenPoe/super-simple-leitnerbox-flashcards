@@ -15,6 +15,10 @@
   --danger-soft: #fee4e2;
   --warning: #92400e;
   --warning-soft: #ffedd5;
+  --hard: #854d0e;
+  --hard-soft: #fef9c3;
+  --easy: #1d4ed8;
+  --easy-soft: #dbeafe;
   --focus: #2563eb;
   --shadow: 0 18px 45px rgba(15, 23, 42, 0.09);
   --radius: 18px;
@@ -45,16 +49,16 @@ button,
 input,
 textarea {
   font: inherit;
-}
-
-button,
-input,
-textarea {
   color: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 button:focus-visible,
@@ -262,11 +266,11 @@ h3 {
   transition: transform 120ms ease, background-color 120ms ease, border-color 120ms ease;
 }
 
-.button:hover {
+.button:not(:disabled):hover {
   transform: translateY(-1px);
 }
 
-.button:active {
+.button:not(:disabled):active {
   transform: translateY(0);
 }
 
@@ -300,8 +304,82 @@ h3 {
 }
 
 .button-large {
-  min-height: 50px;
-  padding-inline: 1.35rem;
+  min-height: 54px;
+  padding-inline: 1.2rem;
+}
+
+.study-direction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 760px;
+  margin: 0 auto 1rem;
+  padding: 0.8rem;
+}
+
+.study-direction legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.study-direction > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.direction-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+  min-width: min(100%, 330px);
+  padding: 0.25rem;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+}
+
+.direction-options label {
+  position: relative;
+  cursor: pointer;
+}
+
+.direction-options input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.direction-options span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.45rem 0.7rem;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.direction-options input:checked + span {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+}
+
+.direction-options input:focus-visible + span {
+  outline: 3px solid color-mix(in srgb, var(--focus) 55%, transparent);
+  outline-offset: 2px;
 }
 
 .study-card-area {
@@ -374,18 +452,25 @@ h3 {
 
 .grade-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.8rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
 .grade-actions .button {
   flex-direction: column;
+  min-width: 0;
+  padding: 0.7rem 0.55rem;
+}
+
+.grade-actions .button strong {
+  font-size: 0.98rem;
 }
 
 .grade-actions .button span {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 650;
-  opacity: 0.78;
+  opacity: 0.82;
+  text-align: center;
 }
 
 .button-again {
@@ -394,10 +479,22 @@ h3 {
   border-color: color-mix(in srgb, var(--warning) 22%, transparent);
 }
 
-.button-correct {
+.button-hard {
+  color: var(--hard);
+  background: var(--hard-soft);
+  border-color: color-mix(in srgb, var(--hard) 22%, transparent);
+}
+
+.button-good {
   color: var(--success);
   background: var(--success-soft);
   border-color: color-mix(in srgb, var(--success) 22%, transparent);
+}
+
+.button-easy {
+  color: var(--easy);
+  background: var(--easy-soft);
+  border-color: color-mix(in srgb, var(--easy) 22%, transparent);
 }
 
 .empty-state {
@@ -625,6 +722,23 @@ input[type="search"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .study-direction {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .study-direction > p {
+    text-align: center;
+  }
+
+  .direction-options {
+    width: 100%;
+  }
+
+  .grade-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .card-row {
     grid-template-columns: 1fr 1fr;
   }
@@ -683,7 +797,11 @@ input[type="search"] {
   }
 
   .grade-actions {
-    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .grade-actions .button {
+    min-height: 70px;
   }
 
   .card-row {
@@ -702,6 +820,7 @@ input[type="search"] {
     flex: 1 1 100%;
   }
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -729,6 +848,10 @@ input[type="search"] {
     --danger-soft: #4a1d25;
     --warning: #fdba74;
     --warning-soft: #4a2a15;
+    --hard: #fde047;
+    --hard-soft: #493d0e;
+    --easy: #93c5fd;
+    --easy-soft: #172e55;
     --focus: #60a5fa;
     --shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
   }

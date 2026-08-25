@@ -3,8 +3,10 @@
 
   const Core = window.LeitnerCore;
   const STORAGE_KEY = "simple-leitner-flashcards-v1";
+  const STUDY_DIRECTION_KEY = "simple-leitner-flashcards-direction-v1";
   const EXPORT_FORMAT = "simple-leitner-flashcards";
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+  const VALID_DIRECTIONS = new Set(["a-to-b", "b-to-a"]);
 
   const elements = {
     tabs: Array.from(document.querySelectorAll(".tab")),
@@ -13,6 +15,7 @@
     boxCounts: Array.from({ length: 6 }, (_, index) => document.querySelector(`#box-count-${index}`)),
     studySummary: document.querySelector("#study-summary"),
     refreshStudy: document.querySelector("#refresh-study"),
+    studyDirectionOptions: Array.from(document.querySelectorAll('input[name="study-direction"]')),
     studyCardArea: document.querySelector("#study-card-area"),
     sessionProgress: document.querySelector("#session-progress"),
     flashcard: document.querySelector("#flashcard"),
@@ -22,8 +25,7 @@
     revealActions: document.querySelector("#reveal-actions"),
     showAnswer: document.querySelector("#show-answer"),
     gradeActions: document.querySelector("#grade-actions"),
-    markAgain: document.querySelector("#mark-again"),
-    markCorrect: document.querySelector("#mark-correct"),
+    gradeButtons: Array.from(document.querySelectorAll("button[data-rating]")),
     studyEmpty: document.querySelector("#study-empty"),
     studyEmptyTitle: document.querySelector("#study-empty-title"),
     studyEmptyText: document.querySelector("#study-empty-text"),
@@ -52,11 +54,12 @@
   let state = Core.createEmptyState();
   let storageAvailable = true;
   let activeView = "study";
+  let studyDirection = "a-to-b";
   let studyQueue = [];
   let sessionTotal = 0;
   let sessionCompleted = 0;
   let currentCardId = null;
-  let showingBack = false;
+  let answerRevealed = false;
   let editingCardId = null;
   let toastTimer = null;
 
@@ -68,6 +71,17 @@
       console.error("Could not load browser data:", error);
       state = Core.createEmptyState();
       storageAvailable = false;
+    }
+  }
+
+  function loadStudyDirection() {
+    try {
+      const savedDirection = localStorage.getItem(STUDY_DIRECTION_KEY);
+      if (VALID_DIRECTIONS.has(savedDirection)) {
+        studyDirection = savedDirection;
+      }
+    } catch (error) {
+      console.error("Could not load the study direction:", error);
     }
   }
 
@@ -91,6 +105,15 @@
     }
 
     renderStorage();
+  }
+
+  function persistStudyDirection() {
+    try {
+      localStorage.setItem(STUDY_DIRECTION_KEY, studyDirection);
+    } catch (error) {
+      console.error("Could not save the study direction:", error);
+      showToast("The side-order choice could not be saved in this browser.");
+    }
   }
 
   function switchView(viewName) {
@@ -120,6 +143,7 @@
     renderStats();
     renderCardList();
     renderStorage();
+    renderStudyDirection();
 
     if (activeView === "study") {
       startStudySession();
@@ -133,12 +157,33 @@
     });
   }
 
+  function renderStudyDirection() {
+    for (const option of elements.studyDirectionOptions) {
+      option.checked = option.value === studyDirection;
+    }
+  }
+
+  function setStudyDirection(direction) {
+    if (!VALID_DIRECTIONS.has(direction) || direction === studyDirection) {
+      return;
+    }
+
+    studyDirection = direction;
+    answerRevealed = false;
+    renderStudyDirection();
+    persistStudyDirection();
+
+    if (currentCardId) {
+      renderStudyCard();
+    }
+  }
+
   function startStudySession() {
     studyQueue = Core.buildStudyQueue(state.cards);
     sessionTotal = studyQueue.length;
     sessionCompleted = 0;
     currentCardId = null;
-    showingBack = false;
+    answerRevealed = false;
     showNextCard();
   }
 
@@ -146,12 +191,26 @@
     return state.cards.find((card) => card.id === currentCardId) || null;
   }
 
+  function getStudySides(card) {
+    if (studyDirection === "b-to-a") {
+      return {
+        first: { label: "Side B", text: card.back },
+        second: { label: "Side A", text: card.front },
+      };
+    }
+
+    return {
+      first: { label: "Side A", text: card.front },
+      second: { label: "Side B", text: card.back },
+    };
+  }
+
   function showNextCard() {
     while (studyQueue.length > 0) {
       const candidateId = studyQueue.shift();
       if (state.cards.some((card) => card.id === candidateId)) {
         currentCardId = candidateId;
-        showingBack = false;
+        answerRevealed = false;
         renderStudyCard();
         return;
       }
@@ -169,26 +228,32 @@
     }
 
     const stats = Core.getStats(state.cards);
+    const sides = getStudySides(card);
+    const visibleSide = answerRevealed ? sides.second : sides.first;
     const remainingIncludingCurrent = studyQueue.length + 1;
     const currentNumber = sessionCompleted + 1;
 
     elements.studySummary.textContent = `${stats.due} due · ${stats.newCardsAvailable} new available today`;
     elements.sessionProgress.textContent = `Card ${currentNumber} of ${sessionTotal} · ${remainingIncludingCurrent} remaining`;
-    elements.cardSideLabel.textContent = showingBack ? "Side B" : "Side A";
-    elements.cardText.textContent = showingBack ? card.back : card.front;
-    elements.cardInstruction.textContent = showingBack
-      ? "Choose Again or Got it."
-      : "Select the card or press Space to show Side B.";
+    elements.cardSideLabel.textContent = visibleSide.label;
+    elements.cardText.textContent = visibleSide.text;
+    elements.showAnswer.textContent = `Show ${sides.second.label}`;
+    elements.cardInstruction.textContent = answerRevealed
+      ? "Choose Again, Hard, Good, or Easy. Keys 1–4 also work."
+      : `Select the card or press Space to show ${sides.second.label}.`;
 
     elements.studyCardArea.hidden = false;
     elements.studyEmpty.hidden = true;
-    elements.revealActions.hidden = showingBack;
-    elements.gradeActions.hidden = !showingBack;
-    elements.flashcard.setAttribute("aria-label", showingBack ? "Side B" : "Side A. Show Side B");
+    elements.revealActions.hidden = answerRevealed;
+    elements.gradeActions.hidden = !answerRevealed;
+    elements.flashcard.setAttribute(
+      "aria-label",
+      answerRevealed
+        ? `${sides.second.label}. Choose a response.`
+        : `${sides.first.label}. Show ${sides.second.label}.`,
+    );
 
-    if (showingBack) {
-      window.requestAnimationFrame(() => elements.markCorrect.focus());
-    } else {
+    if (!answerRevealed) {
       window.requestAnimationFrame(() => elements.flashcard.focus());
     }
   }
@@ -234,21 +299,21 @@
   }
 
   function revealAnswer() {
-    if (!currentCardId || showingBack) {
+    if (!currentCardId || answerRevealed) {
       return;
     }
 
-    showingBack = true;
+    answerRevealed = true;
     renderStudyCard();
   }
 
-  function gradeCurrentCard(wasCorrect) {
+  function gradeCurrentCard(rating) {
     const cardIndex = state.cards.findIndex((card) => card.id === currentCardId);
-    if (cardIndex < 0 || !showingBack) {
+    if (cardIndex < 0 || !answerRevealed) {
       return;
     }
 
-    state.cards[cardIndex] = Core.answerCard(state.cards[cardIndex], wasCorrect);
+    state.cards[cardIndex] = Core.answerCard(state.cards[cardIndex], rating);
     sessionCompleted += 1;
     persistState({ silent: true });
     renderStats();
@@ -388,9 +453,7 @@
 
     const actions = document.createElement("div");
     actions.className = "card-row-actions";
-    actions.append(
-      createActionButton("Edit", "edit", card.id, "button button-secondary"),
-    );
+    actions.append(createActionButton("Edit", "edit", card.id, "button button-secondary"));
 
     if (card.box > 0) {
       actions.append(createActionButton("Reset", "reset", card.id, "button button-quiet"));
@@ -473,6 +536,12 @@
       schedule: {
         newCardsPerDay: Core.NEW_CARDS_PER_DAY,
         boxIntervalsDays: [1, 2, 4, 8, 16],
+        ratings: {
+          again: "Box 1",
+          hard: "same box",
+          good: "advance one box",
+          easy: "advance two boxes",
+        },
       },
       cards: state.cards,
     };
@@ -555,35 +624,48 @@
   }
 
   function handleKeyboard(event) {
-    const activeElement = document.activeElement;
-    const isTyping = activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(activeElement.tagName);
-    if (isTyping || activeView !== "study" || !currentCardId) {
+    if (activeView !== "study" || !currentCardId) {
       return;
     }
 
-    if (!showingBack && (event.key === " " || event.key === "Enter")) {
+    const activeElement = document.activeElement;
+    const isTyping = activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(activeElement.tagName);
+    if (isTyping) {
+      return;
+    }
+
+    if (answerRevealed && Object.prototype.hasOwnProperty.call(Core.RATING_KEYS, event.key)) {
+      event.preventDefault();
+      gradeCurrentCard(Core.RATING_KEYS[event.key]);
+      return;
+    }
+
+    const isButtonFocused = activeElement && activeElement.tagName === "BUTTON";
+    if (!answerRevealed && !isButtonFocused && (event.key === " " || event.key === "Enter")) {
       event.preventDefault();
       revealAnswer();
-    } else if (showingBack && event.key === "1") {
-      event.preventDefault();
-      gradeCurrentCard(false);
-    } else if (showingBack && event.key === "2") {
-      event.preventDefault();
-      gradeCurrentCard(true);
     }
   }
 
   function handleStorageEvent(event) {
-    if (event.key !== STORAGE_KEY || event.newValue === null) {
+    if (event.key === STORAGE_KEY && event.newValue !== null) {
+      try {
+        state = Core.normalizeState(JSON.parse(event.newValue));
+        renderAll();
+        showToast("Deck updated from another tab.");
+      } catch (error) {
+        console.error("Could not synchronize deck:", error);
+      }
       return;
     }
 
-    try {
-      state = Core.normalizeState(JSON.parse(event.newValue));
-      renderAll();
-      showToast("Deck updated from another tab.");
-    } catch (error) {
-      console.error("Could not synchronize deck:", error);
+    if (event.key === STUDY_DIRECTION_KEY && VALID_DIRECTIONS.has(event.newValue)) {
+      studyDirection = event.newValue;
+      answerRevealed = false;
+      renderStudyDirection();
+      if (currentCardId) {
+        renderStudyCard();
+      }
     }
   }
 
@@ -592,11 +674,17 @@
       tab.addEventListener("click", () => switchView(tab.dataset.view));
     }
 
+    for (const option of elements.studyDirectionOptions) {
+      option.addEventListener("change", () => setStudyDirection(option.value));
+    }
+
+    for (const button of elements.gradeButtons) {
+      button.addEventListener("click", () => gradeCurrentCard(button.dataset.rating));
+    }
+
     elements.refreshStudy.addEventListener("click", startStudySession);
     elements.flashcard.addEventListener("click", revealAnswer);
     elements.showAnswer.addEventListener("click", revealAnswer);
-    elements.markAgain.addEventListener("click", () => gradeCurrentCard(false));
-    elements.markCorrect.addEventListener("click", () => gradeCurrentCard(true));
     elements.studyEmptyAction.addEventListener("click", handleStudyEmptyAction);
     elements.cardForm.addEventListener("submit", submitCardForm);
     elements.cancelEdit.addEventListener("click", resetCardForm);
@@ -665,6 +753,7 @@
 
   function initialize() {
     loadStateFromBrowser();
+    loadStudyDirection();
     bindEvents();
     renderAll();
 

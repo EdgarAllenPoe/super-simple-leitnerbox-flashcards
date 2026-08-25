@@ -20,6 +20,13 @@
     4: 8,
     5: 16,
   });
+  const RATING_ORDER = Object.freeze(["again", "hard", "good", "easy"]);
+  const RATING_KEYS = Object.freeze({
+    1: "again",
+    2: "hard",
+    3: "good",
+    4: "easy",
+  });
 
   function pad2(value) {
     return String(value).padStart(2, "0");
@@ -82,6 +89,41 @@
     } catch (_error) {
       return false;
     }
+  }
+
+  function normalizeRating(value) {
+    if (value === false) {
+      return "again";
+    }
+    if (value === true) {
+      return "good";
+    }
+
+    const rating = cleanText(value).toLowerCase();
+    if (!RATING_ORDER.includes(rating)) {
+      throw new TypeError("Rating must be Again, Hard, Good, or Easy.");
+    }
+    return rating;
+  }
+
+  function getDestinationBox(currentBox, rawRating) {
+    const rating = normalizeRating(rawRating);
+    const box = Number(currentBox);
+
+    if (!Number.isInteger(box) || box < 0 || box > 5) {
+      throw new TypeError("Current box must be an integer from 0 through 5.");
+    }
+
+    if (rating === "again") {
+      return 1;
+    }
+    if (rating === "hard") {
+      return box === 0 ? 1 : box;
+    }
+    if (rating === "good") {
+      return box === 0 ? 1 : Math.min(5, box + 1);
+    }
+    return box === 0 ? 2 : Math.min(5, box + 2);
   }
 
   function createCard(front, back, now = new Date()) {
@@ -260,23 +302,23 @@
     return [...dueCards, ...newCards].map((card) => card.id);
   }
 
-  function answerCard(rawCard, wasCorrect, today = localDateString(), now = new Date()) {
+  function answerCard(rawCard, rawRating, today = localDateString(), now = new Date()) {
     const card = normalizeCard(rawCard, 0, now);
+    const rating = normalizeRating(rawRating);
     const timestamp = new Date(now).toISOString();
     const firstIntroduction = card.box === 0 && !card.introducedAt;
 
-    if (wasCorrect) {
-      card.box = card.box === 0 ? 1 : Math.min(5, card.box + 1);
-      card.correctCount += 1;
-    } else {
-      card.box = 1;
-      card.incorrectCount += 1;
-    }
-
+    card.box = getDestinationBox(card.box, rating);
     card.dueDate = addDays(today, BOX_INTERVAL_DAYS[card.box]);
     card.reviewCount += 1;
     card.lastReviewedAt = timestamp;
     card.updatedAt = timestamp;
+
+    if (rating === "again") {
+      card.incorrectCount += 1;
+    } else {
+      card.correctCount += 1;
+    }
 
     if (firstIntroduction) {
       card.introducedAt = timestamp;
@@ -335,8 +377,12 @@
     SCHEMA_VERSION,
     NEW_CARDS_PER_DAY,
     BOX_INTERVAL_DAYS,
+    RATING_ORDER,
+    RATING_KEYS,
     localDateString,
     addDays,
+    normalizeRating,
+    getDestinationBox,
     createCard,
     normalizeCard,
     createEmptyState,

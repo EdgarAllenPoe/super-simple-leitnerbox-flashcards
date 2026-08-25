@@ -26,7 +26,7 @@ function cardInBox(box, dueDate, overrides = {}) {
 
 test("uses the fixed five-box schedule and four rating keys", () => {
   assert.deepEqual(Core.BOX_INTERVAL_DAYS, { 1: 1, 2: 2, 3: 4, 4: 8, 5: 16 });
-  assert.equal(Core.NEW_CARDS_PER_DAY, 10);
+  assert.equal(Core.INBOX_PROMOTION_COUNT, 5);
   assert.deepEqual(Core.RATING_ORDER, ["again", "hard", "good", "easy"]);
   assert.deepEqual(Core.RATING_KEYS, { 1: "again", 2: "hard", 3: "good", 4: "easy" });
 });
@@ -139,7 +139,7 @@ test("rejects unknown ratings", () => {
   );
 });
 
-test("study queue includes due cards first and limits new cards", () => {
+test("study queue includes due Leitner cards but never Inbox cards", () => {
   const cards = [
     cardInBox(2, "2026-08-23", { id: "overdue" }),
     cardInBox(1, TODAY, { id: "due" }),
@@ -158,26 +158,42 @@ test("study queue includes due cards first and limits new cards", () => {
   }
 
   const queue = Core.buildStudyQueue(cards, TODAY);
-  assert.equal(queue.length, 12);
-  assert.deepEqual(queue.slice(0, 2), ["overdue", "due"]);
+  assert.deepEqual(queue, ["overdue", "due"]);
   assert.equal(queue.includes("future"), false);
-  assert.equal(queue.filter((id) => id.startsWith("new-")).length, 10);
+  assert.equal(queue.some((id) => id.startsWith("new-")), false);
 });
 
-test("cards already introduced today reduce the daily new-card allowance", () => {
+test("promoting Inbox cards moves the five oldest to Box 1 due today", () => {
   const cards = [];
-  for (let index = 0; index < 8; index += 1) {
-    cards.push(cardInBox(1, "2026-08-25", {
-      id: `introduced-${index}`,
-      introducedAt: "2026-08-24T08:00:00.000Z",
-    }));
+  for (let index = 0; index < 7; index += 1) {
+    cards.push({
+      ...Core.createCard(
+        `Inbox ${index}`,
+        `Back ${index}`,
+        new Date(`2026-08-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`),
+      ),
+      id: `inbox-${index}`,
+    });
   }
-  for (let index = 0; index < 5; index += 1) {
-    cards.push({ ...Core.createCard(`New ${index}`, `Back ${index}`, NOW), id: `new-${index}` });
-  }
+  cards.push(cardInBox(2, "2026-08-26", { id: "existing" }));
 
-  const queue = Core.buildStudyQueue(cards, TODAY);
-  assert.equal(queue.length, 2);
+  const promoted = Core.promoteInboxCards(cards, Core.INBOX_PROMOTION_COUNT, TODAY, NOW);
+  assert.deepEqual(
+    promoted.filter((card) => card.id.startsWith("inbox-") && card.box === 1).map((card) => card.id),
+    ["inbox-0", "inbox-1", "inbox-2", "inbox-3", "inbox-4"],
+  );
+  assert.deepEqual(
+    promoted.filter((card) => card.box === 0).map((card) => card.id),
+    ["inbox-5", "inbox-6"],
+  );
+  for (const card of promoted.filter((item) => item.id.startsWith("inbox-") && item.box === 1)) {
+    assert.equal(card.dueDate, TODAY);
+    assert.equal(card.reviewCount, 0);
+    assert.ok(card.introducedAt);
+  }
+  const existing = promoted.find((card) => card.id === "existing");
+  assert.equal(existing.box, 2);
+  assert.equal(existing.dueDate, "2026-08-26");
 });
 
 test("reset clears study progress and returns a card to the Inbox", () => {

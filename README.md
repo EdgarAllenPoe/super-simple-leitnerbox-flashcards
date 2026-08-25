@@ -8,7 +8,7 @@ A small, dependency-free flashcard website for GitHub Pages. Cards contain plain
 
 ## How it works
 
-New cards begin in an **Inbox**. A study session introduces up to **10 new cards per day**, after all cards that are due have been placed in the queue.
+New cards begin in an **Inbox** and never enter Study automatically. The Inbox tile is a button: click it to move the **5 oldest Inbox cards** into **Box 1**, where they are due immediately and ready to study.
 
 The learner may study **Side A first** or **Side B first**. That choice is remembered in the current browser.
 
@@ -17,9 +17,9 @@ After revealing the other side, one of four ratings is selected. The buttons imm
 | Key | Rating | What happens |
 |---:|---|---|
 | 1 | Again | The card returns to Box 1. |
-| 2 | Hard | The card stays in its current box. A new card enters Box 1. |
-| 3 | Good | The card advances one box. A new card enters Box 1. |
-| 4 | Easy | The card advances two boxes. A new card enters Box 2. |
+| 2 | Hard | The card stays in its current box. |
+| 3 | Good | The card advances one box. |
+| 4 | Easy | The card advances two boxes. |
 
 Cards never move beyond Box 5. Every rating schedules the next review using the interval of the destination box.
 

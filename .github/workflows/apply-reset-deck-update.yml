@@ -1,0 +1,179 @@
+name: Apply deck reset update
+
+on:
+  push:
+    branches: [feature/reset-deck-to-inbox]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Apply reset-all update
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {text.count(old)}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "core.js",
+              '''  function getStats(cards, today = localDateString()) {''',
+              '''  function resetAllCards(cards, now = new Date()) {
+            if (!Array.isArray(cards)) {
+              throw new TypeError("Cards must be an array.");
+            }
+
+            return cards.map((card) => resetCard(card, now));
+          }
+
+          function getStats(cards, today = localDateString()) {''',
+          )
+
+          replace_once(
+              "core.js",
+              '''    resetCard,
+            getStats,''',
+              '''    resetCard,
+            resetAllCards,
+            getStats,''',
+          )
+
+          replace_once(
+              "app.js",
+              '''    importDeck: document.querySelector("#import-deck"),
+            clearDeck: document.querySelector("#clear-deck"),''',
+              '''    importDeck: document.querySelector("#import-deck"),
+            resetDeck: document.querySelector("#reset-deck"),
+            clearDeck: document.querySelector("#clear-deck"),''',
+          )
+
+          replace_once(
+              "app.js",
+              '''    elements.exportDeck.disabled = state.cards.length === 0;
+            elements.clearDeck.disabled = state.cards.length === 0;''',
+              '''    elements.exportDeck.disabled = state.cards.length === 0;
+            elements.resetDeck.disabled = state.cards.length === 0;
+            elements.clearDeck.disabled = state.cards.length === 0;''',
+          )
+
+          replace_once(
+              "app.js",
+              '''  function clearDeck() {
+            if (state.cards.length === 0) {''',
+              '''  function resetDeckProgress() {
+            if (state.cards.length === 0) {
+              return;
+            }
+
+            if (!window.confirm(`Return all ${state.cards.length} ${pluralize("card", state.cards.length)} to the Inbox and erase all study progress? The card text will be kept.`)) {
+              return;
+            }
+
+            state.cards = Core.resetAllCards(state.cards);
+            resetCardForm();
+            persistState({ silent: true });
+            renderAll();
+            showToast("All cards returned to the Inbox.");
+          }
+
+          function clearDeck() {
+            if (state.cards.length === 0) {''',
+          )
+
+          replace_once(
+              "app.js",
+              '''    elements.importDeck.addEventListener("change", importDeck);
+            elements.clearDeck.addEventListener("click", clearDeck);''',
+              '''    elements.importDeck.addEventListener("change", importDeck);
+            elements.resetDeck.addEventListener("click", resetDeckProgress);
+            elements.clearDeck.addEventListener("click", clearDeck);''',
+          )
+
+          replace_once(
+              "index.html",
+              '''        <section class="panel danger-panel">
+                  <div>
+                    <h3>Start over</h3>
+                    <p>Remove every card from this browser.</p>
+                  </div>
+                  <button id="clear-deck" class="button button-danger" type="button">Delete all cards</button>
+                </section>''',
+              '''        <section class="panel danger-panel">
+                  <div>
+                    <h3>Reset study progress</h3>
+                    <p>Keep every card, but return all of them to the Inbox and erase their study progress.</p>
+                  </div>
+                  <button id="reset-deck" class="button button-secondary" type="button">Reset all cards to Inbox</button>
+                </section>
+
+                <section class="panel danger-panel">
+                  <div>
+                    <h3>Start over</h3>
+                    <p>Remove every card from this browser.</p>
+                  </div>
+                  <button id="clear-deck" class="button button-danger" type="button">Delete all cards</button>
+                </section>''',
+          )
+
+          replace_once(
+              "tests/core.test.js",
+              '''test("normalizes a simple array import and alternative side names", () => {''',
+              '''test("reset all returns every card to the Inbox while preserving card text", () => {
+            const cards = [
+              cardInBox(2, TODAY, { id: "one", front: "One", back: "Uno" }),
+              cardInBox(5, "2026-09-09", { id: "two", front: "Two", back: "Dos" }),
+              { ...Core.createCard("Three", "Tres", NOW), id: "three" },
+            ];
+
+            const reset = Core.resetAllCards(cards, NOW);
+            assert.equal(reset.length, 3);
+            assert.deepEqual(reset.map((card) => card.box), [0, 0, 0]);
+            assert.deepEqual(reset.map((card) => card.dueDate), [null, null, null]);
+            assert.deepEqual(reset.map((card) => card.reviewCount), [0, 0, 0]);
+            assert.deepEqual(reset.map((card) => [card.front, card.back]), [
+              ["One", "Uno"],
+              ["Two", "Dos"],
+              ["Three", "Tres"],
+            ]);
+          });
+
+          test("normalizes a simple array import and alternative side names", () => {''',
+          )
+
+          replace_once(
+              "README.md",
+              '''- **Load deck from file** replaces the current browser deck with a selected backup.
+          - No card data is sent to a server.''',
+              '''- **Load deck from file** replaces the current browser deck with a selected backup.
+          - **Reset all cards to Inbox** keeps the cards but erases all study progress and returns every card to the Inbox.
+          - No card data is sent to a server.''',
+          )
+
+      - name: Verify application
+        run: npm run verify
+
+      - name: Commit tested update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app.js core.js index.html README.md tests/core.test.js
+          git commit -m "Add reset-all-cards-to-Inbox action"
+          git push origin HEAD:feature/reset-deck-to-inbox

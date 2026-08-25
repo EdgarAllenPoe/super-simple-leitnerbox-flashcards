@@ -36,6 +36,7 @@ Cards never move beyond Box 5. Every rating schedules the next review using the 
 - Every deck change is automatically stored in the browser with `localStorage`.
 - **Save deck to file** downloads a JSON backup containing the cards and all study progress.
 - **Load deck from file** replaces the current browser deck with a selected backup.
+- **Reset all cards to Inbox** keeps the cards but erases all study progress and returns every card to the Inbox.
 - No card data is sent to a server.
 
 Browser storage belongs to one browser profile on one device. Use backup files when moving to another device, clearing browser data, or keeping an extra copy.

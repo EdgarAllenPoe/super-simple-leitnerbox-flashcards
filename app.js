@@ -47,6 +47,7 @@
     exportDeck: document.querySelector("#export-deck"),
     chooseImport: document.querySelector("#choose-import"),
     importDeck: document.querySelector("#import-deck"),
+    resetDeck: document.querySelector("#reset-deck"),
     clearDeck: document.querySelector("#clear-deck"),
     toast: document.querySelector("#toast"),
   };
@@ -525,6 +526,7 @@
       ? "Every change is saved automatically on this device."
       : "Browser storage is unavailable. Use a backup file to protect your deck.";
     elements.exportDeck.disabled = state.cards.length === 0;
+    elements.resetDeck.disabled = state.cards.length === 0;
     elements.clearDeck.disabled = state.cards.length === 0;
   }
 
@@ -596,6 +598,22 @@
       console.error("Could not import deck:", error);
       showToast(error instanceof Error ? error.message : "The deck could not be loaded.");
     }
+  }
+
+  function resetDeckProgress() {
+    if (state.cards.length === 0) {
+      return;
+    }
+
+    if (!window.confirm(`Return all ${state.cards.length} ${pluralize("card", state.cards.length)} to the Inbox and erase all study progress? The card text will be kept.`)) {
+      return;
+    }
+
+    state.cards = Core.resetAllCards(state.cards);
+    resetCardForm();
+    persistState({ silent: true });
+    renderAll();
+    showToast("All cards returned to the Inbox.");
   }
 
   function clearDeck() {
@@ -693,6 +711,7 @@
     elements.exportDeck.addEventListener("click", exportDeck);
     elements.chooseImport.addEventListener("click", () => elements.importDeck.click());
     elements.importDeck.addEventListener("change", importDeck);
+    elements.resetDeck.addEventListener("click", resetDeckProgress);
     elements.clearDeck.addEventListener("click", clearDeck);
     document.addEventListener("keydown", handleKeyboard);
     window.addEventListener("storage", handleStorageEvent);

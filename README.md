@@ -2,6 +2,16 @@
 
 A small, dependency-free flashcard website for GitHub Pages. Cards contain plain text on **Side A** and **Side B**.
 
+## Development disclosure
+
+This project was created through **vibe coding** with ChatGPT.
+
+- **ChatGPT version:** GPT-5.6 Pro
+- **Thinking level:** Reasoning model
+- **Date:** August 25, 2026
+
+The code was generated and modified through AI-assisted workflows and automated testing. **It was not manually reviewed.**
+
 ## Live site
 
 `https://edgarallenpoe.github.io/super-simple-leitnerbox-flashcards/`

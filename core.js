@@ -340,6 +340,14 @@
     return card;
   }
 
+  function resetAllCards(cards, now = new Date()) {
+    if (!Array.isArray(cards)) {
+      throw new TypeError("Cards must be an array.");
+    }
+
+    return cards.map((card) => resetCard(card, now));
+  }
+
   function getStats(cards, today = localDateString()) {
     const byBox = [0, 0, 0, 0, 0, 0];
     let due = 0;
@@ -391,6 +399,7 @@
     buildStudyQueue,
     answerCard,
     resetCard,
+    resetAllCards,
     getStats,
   });
 });

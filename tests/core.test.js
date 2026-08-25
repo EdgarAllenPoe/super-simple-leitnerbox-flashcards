@@ -188,6 +188,25 @@ test("reset clears study progress and returns a card to the Inbox", () => {
   assert.equal(reset.introducedAt, null);
 });
 
+test("reset all returns every card to the Inbox while preserving card text", () => {
+  const cards = [
+    cardInBox(2, TODAY, { id: "one", front: "One", back: "Uno" }),
+    cardInBox(5, "2026-09-09", { id: "two", front: "Two", back: "Dos" }),
+    { ...Core.createCard("Three", "Tres", NOW), id: "three" },
+  ];
+
+  const reset = Core.resetAllCards(cards, NOW);
+  assert.equal(reset.length, 3);
+  assert.deepEqual(reset.map((card) => card.box), [0, 0, 0]);
+  assert.deepEqual(reset.map((card) => card.dueDate), [null, null, null]);
+  assert.deepEqual(reset.map((card) => card.reviewCount), [0, 0, 0]);
+  assert.deepEqual(reset.map((card) => [card.front, card.back]), [
+    ["One", "Uno"],
+    ["Two", "Dos"],
+    ["Three", "Tres"],
+  ]);
+});
+
 test("normalizes a simple array import and alternative side names", () => {
   const normalized = Core.normalizeState([
     { sideA: "One", sideB: "Uno" },

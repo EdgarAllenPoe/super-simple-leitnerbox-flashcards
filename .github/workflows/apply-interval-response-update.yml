@@ -1,0 +1,366 @@
+name: Apply interval and response update
+
+on:
+  push:
+    branches: [automation/apply-interval-response-update]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out target feature branch
+        uses: actions/checkout@v6
+        with:
+          ref: feature/30-day-intervals-conversational-responses
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Apply interval and response changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file_path = Path(path)
+              text = file_path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f"Expected exactly one match in {path}, found {count}: {old[:100]!r}"
+                  )
+              file_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          replace_once(
+              "core.js",
+              """  const BOX_INTERVAL_DAYS = Object.freeze({
+              1: 1,
+              2: 2,
+              3: 4,
+              4: 8,
+              5: 16,
+            });""",
+              """  const BOX_INTERVAL_DAYS = Object.freeze({
+              1: 1,
+              2: 3,
+              3: 7,
+              4: 15,
+              5: 30,
+            });""",
+          )
+
+          rating_keys = """  const RATING_KEYS = Object.freeze({
+              1: "again",
+              2: "hard",
+              3: "good",
+              4: "easy",
+            });"""
+          replace_once(
+              "core.js",
+              rating_keys,
+              rating_keys + """
+
+            const RATING_LABELS = Object.freeze({
+              again: "I forgot",
+              hard: "I had to think",
+              good: "I knew it",
+              easy: "Too easy",
+            });""",
+          )
+
+          replace_once(
+              "core.js",
+              '      throw new TypeError("Rating must be Again, Hard, Good, or Easy.");',
+              '      throw new TypeError("Rating must be one of the four supported responses.");',
+          )
+          replace_once(
+              "core.js",
+              """    RATING_ORDER,
+              RATING_KEYS,""",
+              """    RATING_ORDER,
+              RATING_KEYS,
+              RATING_LABELS,""",
+          )
+
+          replace_once(
+              "app.js",
+              '? "Choose Again, Hard, Good, or Easy. Keys 1–4 also work."',
+              '? "How did that feel? Choose a response or press 1–4."',
+          )
+          replace_once(
+              "app.js",
+              "        boxIntervalsDays: [1, 2, 4, 8, 16],",
+              "        boxIntervalsDays: Object.values(Core.BOX_INTERVAL_DAYS),",
+          )
+          replace_once(
+              "app.js",
+              """        ratings: {
+                    again: "Box 1",
+                    hard: "same box",
+                    good: "advance one box",
+                    easy: "advance two boxes",
+                  },""",
+              "        ratings: Core.RATING_LABELS,",
+          )
+
+          replace_once(
+              "index.html",
+              '  <meta name="description" content="A simple five-box Leitner flashcard app with four response grades and reversible card sides.">',
+              '  <meta name="description" content="A simple five-box Leitner flashcard app with conversational responses and reversible card sides.">',
+          )
+          for old, new in [
+              ('        <span class="box-detail">2 days</span>', '        <span class="box-detail">3 days</span>'),
+              ('        <span class="box-detail">4 days</span>', '        <span class="box-detail">7 days</span>'),
+              ('        <span class="box-detail">8 days</span>', '        <span class="box-detail">15 days</span>'),
+              ('        <span class="box-detail">16 days</span>', '        <span class="box-detail">30 days</span>'),
+          ]:
+              replace_once("index.html", old, new)
+
+          replace_once(
+              "index.html",
+              """          <div id="grade-actions" class="grade-actions" hidden aria-label="Rate your answer">
+                    <button class="button button-again button-large" type="button" data-rating="again">
+                      <strong>Again</strong>
+                      <span>1 · Return to Box 1</span>
+                    </button>
+                    <button class="button button-hard button-large" type="button" data-rating="hard">
+                      <strong>Hard</strong>
+                      <span>2 · Stay in this box</span>
+                    </button>
+                    <button class="button button-good button-large" type="button" data-rating="good">
+                      <strong>Good</strong>
+                      <span>3 · Advance one box</span>
+                    </button>
+                    <button class="button button-easy button-large" type="button" data-rating="easy">
+                      <strong>Easy</strong>
+                      <span>4 · Advance two boxes</span>
+                    </button>
+                  </div>""",
+              """          <div id="grade-actions" class="grade-actions" hidden aria-label="How well did you remember?">
+                    <button class="button button-again button-large" type="button" data-rating="again" aria-keyshortcuts="1">
+                      <strong>I forgot</strong>
+                      <span>1</span>
+                    </button>
+                    <button class="button button-hard button-large" type="button" data-rating="hard" aria-keyshortcuts="2">
+                      <strong>I had to think</strong>
+                      <span>2</span>
+                    </button>
+                    <button class="button button-good button-large" type="button" data-rating="good" aria-keyshortcuts="3">
+                      <strong>I knew it</strong>
+                      <span>3</span>
+                    </button>
+                    <button class="button button-easy button-large" type="button" data-rating="easy" aria-keyshortcuts="4">
+                      <strong>Too easy</strong>
+                      <span>4</span>
+                    </button>
+                  </div>""",
+          )
+          replace_once(
+              "index.html",
+              "      <p>Inbox cards do not enter Study automatically. Use the Inbox button to move five at a time into Box 1. Again returns a card to Box 1; Hard stays; Good advances one; Easy advances two.</p>",
+              "      <p>After revealing a card, choose “I forgot,” “I had to think,” “I knew it,” or “Too easy”—or press keys 1–4.</p>",
+          )
+
+          replace_once(
+              "README.md",
+              "After revealing the other side, one of four ratings is selected. The buttons immediately advance to the next card and are also bound to the number keys.",
+              "After revealing the other side, the learner chooses one of four conversational responses. The buttons immediately advance to the next card and are also bound to the number keys.",
+          )
+          replace_once(
+              "README.md",
+              """| Key | Rating | What happens |
+            |---:|---|---|
+            | 1 | Again | The card returns to Box 1. |
+            | 2 | Hard | The card stays in its current box. |
+            | 3 | Good | The card advances one box. |
+            | 4 | Easy | The card advances two boxes. |""",
+              """| Key | Response | What happens |
+            |---:|---|---|
+            | 1 | I forgot | The card returns to Box 1. |
+            | 2 | I had to think | The card stays in its current box. |
+            | 3 | I knew it | The card advances one box. |
+            | 4 | Too easy | The card advances two boxes. |""",
+          )
+          replace_once(
+              "README.md",
+              """| 1 | 1 day |
+            | 2 | 2 days |
+            | 3 | 4 days |
+            | 4 | 8 days |
+            | 5 | 16 days |""",
+              """| 1 | 1 day |
+            | 2 | 3 days |
+            | 3 | 7 days |
+            | 4 | 15 days |
+            | 5 | 30 days |""",
+          )
+          replace_once("README.md", "Every rating schedules", "Every response schedules")
+          replace_once(
+              "README.md",
+              """- **1**: Again
+            - **2**: Hard
+            - **3**: Good
+            - **4**: Easy""",
+              """- **1**: I forgot
+            - **2**: I had to think
+            - **3**: I knew it
+            - **4**: Too easy""",
+          )
+
+          replace_once(
+              "tests/core.test.js",
+              'const assert = require("node:assert/strict");\nconst Core = require("../core.js");',
+              'const assert = require("node:assert/strict");\nconst fs = require("node:fs");\nconst path = require("node:path");\nconst Core = require("../core.js");',
+          )
+          replace_once(
+              "tests/core.test.js",
+              """test("uses the fixed five-box schedule and four rating keys", () => {
+              assert.deepEqual(Core.BOX_INTERVAL_DAYS, { 1: 1, 2: 2, 3: 4, 4: 8, 5: 16 });
+              assert.equal(Core.INBOX_PROMOTION_COUNT, 5);
+              assert.deepEqual(Core.RATING_ORDER, ["again", "hard", "good", "easy"]);
+              assert.deepEqual(Core.RATING_KEYS, { 1: "again", 2: "hard", 3: "good", 4: "easy" });
+            });""",
+              """test("uses the fixed five-box schedule and conversational responses", () => {
+              assert.deepEqual(Core.BOX_INTERVAL_DAYS, { 1: 1, 2: 3, 3: 7, 4: 15, 5: 30 });
+              assert.equal(Core.INBOX_PROMOTION_COUNT, 5);
+              assert.deepEqual(Core.RATING_ORDER, ["again", "hard", "good", "easy"]);
+              assert.deepEqual(Core.RATING_KEYS, { 1: "again", 2: "hard", 3: "good", 4: "easy" });
+              assert.deepEqual(Core.RATING_LABELS, {
+                again: "I forgot",
+                hard: "I had to think",
+                good: "I knew it",
+                easy: "Too easy",
+              });
+            });""",
+          )
+          replace_once(
+              "tests/core.test.js",
+              '    easy: [2, "2026-08-26"],',
+              '    easy: [2, "2026-08-27"],',
+          )
+          replace_once(
+              "tests/core.test.js",
+              """  const cases = [
+                [1, "2026-08-25"],
+                [2, "2026-08-26"],
+                [3, "2026-08-28"],
+                [4, "2026-09-01"],
+                [5, "2026-09-09"],
+              ];""",
+              """  const cases = [
+                [1, "2026-08-25"],
+                [2, "2026-08-27"],
+                [3, "2026-08-31"],
+                [4, "2026-09-08"],
+                [5, "2026-09-23"],
+              ];""",
+          )
+          replace_once(
+              "tests/core.test.js",
+              """  const cases = [
+                [1, 2, "2026-08-26"],
+                [2, 3, "2026-08-28"],
+                [3, 4, "2026-09-01"],
+                [4, 5, "2026-09-09"],
+                [5, 5, "2026-09-09"],
+              ];""",
+              """  const cases = [
+                [1, 2, "2026-08-27"],
+                [2, 3, "2026-08-31"],
+                [3, 4, "2026-09-08"],
+                [4, 5, "2026-09-23"],
+                [5, 5, "2026-09-23"],
+              ];""",
+          )
+          replace_once(
+              "tests/core.test.js",
+              """  const cases = [
+                [1, 3, "2026-08-28"],
+                [2, 4, "2026-09-01"],
+                [3, 5, "2026-09-09"],
+                [4, 5, "2026-09-09"],
+                [5, 5, "2026-09-09"],
+              ];""",
+              """  const cases = [
+                [1, 3, "2026-08-31"],
+                [2, 4, "2026-09-08"],
+                [3, 5, "2026-09-23"],
+                [4, 5, "2026-09-23"],
+                [5, 5, "2026-09-23"],
+              ];""",
+          )
+          replace_once(
+              "tests/core.test.js",
+              "/Again, Hard, Good, or Easy/",
+              "/four supported responses/",
+          )
+
+          ui_test = r"""test("response buttons use conversational text and show only their key numbers", () => {
+              const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+              const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+              const responses = [
+                ["again", Core.RATING_LABELS.again, "1"],
+                ["hard", Core.RATING_LABELS.hard, "2"],
+                ["good", Core.RATING_LABELS.good, "3"],
+                ["easy", Core.RATING_LABELS.easy, "4"],
+              ];
+
+              for (const [rating, label, key] of responses) {
+                const match = html.match(
+                  new RegExp(`<button[^>]*data-rating="${rating}"[^>]*>([\\s\\S]*?)</button>`),
+                );
+                assert.ok(match, `Missing ${rating} response button.`);
+                assert.ok(match[1].includes(`<strong>${label}</strong>`), `${rating} label`);
+                assert.match(match[1], new RegExp(`<span>\\s*${key}\\s*</span>`));
+                assert.doesNotMatch(match[1], /Box|Stay|Advance|Return/);
+              }
+
+              assert.match(app, /boxIntervalsDays: Object\.values\(Core\.BOX_INTERVAL_DAYS\)/);
+            });
+
+            """
+          replace_once(
+              "tests/core.test.js",
+              'test("normalizes a simple array import and alternative side names", () => {',
+              ui_test + 'test("normalizes a simple array import and alternative side names", () => {',
+          )
+
+          replace_once(
+              "package.json",
+              '  "version": "1.1.0",',
+              '  "version": "1.2.0",',
+          )
+
+      - name: Verify application
+        run: npm run verify
+
+      - name: Verify requested copy and schedule
+        run: |
+          grep -q '<strong>I forgot</strong>' index.html
+          grep -q '<strong>I had to think</strong>' index.html
+          grep -q '<strong>I knew it</strong>' index.html
+          grep -q '<strong>Too easy</strong>' index.html
+          ! grep -q 'Stay in this box\|Return to Box 1\|Advance one box\|Advance two boxes' index.html
+          grep -q '2: 3' core.js
+          grep -q '3: 7' core.js
+          grep -q '4: 15' core.js
+          grep -q '5: 30' core.js
+
+      - name: Commit all requested changes once
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test "$(git rev-list --count origin/main..HEAD)" -eq 0
+          git add -- core.js app.js index.html README.md tests/core.test.js package.json
+          git diff --cached --check
+          git commit -m "Update review intervals and conversational responses"
+          test "$(git rev-list --count origin/main..HEAD)" -eq 1
+          git push origin HEAD:feature/30-day-intervals-conversational-responses

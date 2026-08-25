@@ -29,142 +29,119 @@ jobs:
           def replace_once(path, old, new):
               p = Path(path)
               text = p.read_text()
-              if text.count(old) != 1:
-                  raise SystemExit(f"Expected exactly one match in {path}, found {text.count(old)}")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old!r}")
               p.write_text(text.replace(old, new, 1))
 
           replace_once(
               "core.js",
-              '''  function getStats(cards, today = localDateString()) {''',
-              '''  function resetAllCards(cards, now = new Date()) {
-            if (!Array.isArray(cards)) {
-              throw new TypeError("Cards must be an array.");
-            }
-
-            return cards.map((card) => resetCard(card, now));
-          }
-
-          function getStats(cards, today = localDateString()) {''',
+              "  function getStats(cards, today = localDateString()) {",
+              "  function resetAllCards(cards, now = new Date()) {\n"
+              "    if (!Array.isArray(cards)) {\n"
+              "      throw new TypeError(\"Cards must be an array.\");\n"
+              "    }\n\n"
+              "    return cards.map((card) => resetCard(card, now));\n"
+              "  }\n\n"
+              "  function getStats(cards, today = localDateString()) {",
           )
 
           replace_once(
               "core.js",
-              '''    resetCard,
-            getStats,''',
-              '''    resetCard,
-            resetAllCards,
-            getStats,''',
+              "    resetCard,\n    getStats,",
+              "    resetCard,\n    resetAllCards,\n    getStats,",
           )
 
           replace_once(
               "app.js",
-              '''    importDeck: document.querySelector("#import-deck"),
-            clearDeck: document.querySelector("#clear-deck"),''',
-              '''    importDeck: document.querySelector("#import-deck"),
-            resetDeck: document.querySelector("#reset-deck"),
-            clearDeck: document.querySelector("#clear-deck"),''',
+              "    importDeck: document.querySelector(\"#import-deck\"),\n    clearDeck: document.querySelector(\"#clear-deck\"),",
+              "    importDeck: document.querySelector(\"#import-deck\"),\n    resetDeck: document.querySelector(\"#reset-deck\"),\n    clearDeck: document.querySelector(\"#clear-deck\"),",
           )
 
           replace_once(
               "app.js",
-              '''    elements.exportDeck.disabled = state.cards.length === 0;
-            elements.clearDeck.disabled = state.cards.length === 0;''',
-              '''    elements.exportDeck.disabled = state.cards.length === 0;
-            elements.resetDeck.disabled = state.cards.length === 0;
-            elements.clearDeck.disabled = state.cards.length === 0;''',
+              "    elements.exportDeck.disabled = state.cards.length === 0;\n    elements.clearDeck.disabled = state.cards.length === 0;",
+              "    elements.exportDeck.disabled = state.cards.length === 0;\n    elements.resetDeck.disabled = state.cards.length === 0;\n    elements.clearDeck.disabled = state.cards.length === 0;",
           )
 
           replace_once(
               "app.js",
-              '''  function clearDeck() {
-            if (state.cards.length === 0) {''',
-              '''  function resetDeckProgress() {
-            if (state.cards.length === 0) {
-              return;
-            }
-
-            if (!window.confirm(`Return all ${state.cards.length} ${pluralize("card", state.cards.length)} to the Inbox and erase all study progress? The card text will be kept.`)) {
-              return;
-            }
-
-            state.cards = Core.resetAllCards(state.cards);
-            resetCardForm();
-            persistState({ silent: true });
-            renderAll();
-            showToast("All cards returned to the Inbox.");
-          }
-
-          function clearDeck() {
-            if (state.cards.length === 0) {''',
+              "  function clearDeck() {\n    if (state.cards.length === 0) {",
+              "  function resetDeckProgress() {\n"
+              "    if (state.cards.length === 0) {\n"
+              "      return;\n"
+              "    }\n\n"
+              "    if (!window.confirm(`Return all ${state.cards.length} ${pluralize(\"card\", state.cards.length)} to the Inbox and erase all study progress? The card text will be kept.`)) {\n"
+              "      return;\n"
+              "    }\n\n"
+              "    state.cards = Core.resetAllCards(state.cards);\n"
+              "    resetCardForm();\n"
+              "    persistState({ silent: true });\n"
+              "    renderAll();\n"
+              "    showToast(\"All cards returned to the Inbox.\");\n"
+              "  }\n\n"
+              "  function clearDeck() {\n"
+              "    if (state.cards.length === 0) {",
           )
 
           replace_once(
               "app.js",
-              '''    elements.importDeck.addEventListener("change", importDeck);
-            elements.clearDeck.addEventListener("click", clearDeck);''',
-              '''    elements.importDeck.addEventListener("change", importDeck);
-            elements.resetDeck.addEventListener("click", resetDeckProgress);
-            elements.clearDeck.addEventListener("click", clearDeck);''',
+              "    elements.importDeck.addEventListener(\"change\", importDeck);\n    elements.clearDeck.addEventListener(\"click\", clearDeck);",
+              "    elements.importDeck.addEventListener(\"change\", importDeck);\n    elements.resetDeck.addEventListener(\"click\", resetDeckProgress);\n    elements.clearDeck.addEventListener(\"click\", clearDeck);",
           )
 
           replace_once(
               "index.html",
-              '''        <section class="panel danger-panel">
-                  <div>
-                    <h3>Start over</h3>
-                    <p>Remove every card from this browser.</p>
-                  </div>
-                  <button id="clear-deck" class="button button-danger" type="button">Delete all cards</button>
-                </section>''',
-              '''        <section class="panel danger-panel">
-                  <div>
-                    <h3>Reset study progress</h3>
-                    <p>Keep every card, but return all of them to the Inbox and erase their study progress.</p>
-                  </div>
-                  <button id="reset-deck" class="button button-secondary" type="button">Reset all cards to Inbox</button>
-                </section>
-
-                <section class="panel danger-panel">
-                  <div>
-                    <h3>Start over</h3>
-                    <p>Remove every card from this browser.</p>
-                  </div>
-                  <button id="clear-deck" class="button button-danger" type="button">Delete all cards</button>
-                </section>''',
+              "        <section class=\"panel danger-panel\">\n"
+              "          <div>\n"
+              "            <h3>Start over</h3>\n"
+              "            <p>Remove every card from this browser.</p>\n"
+              "          </div>\n"
+              "          <button id=\"clear-deck\" class=\"button button-danger\" type=\"button\">Delete all cards</button>\n"
+              "        </section>",
+              "        <section class=\"panel danger-panel\">\n"
+              "          <div>\n"
+              "            <h3>Reset study progress</h3>\n"
+              "            <p>Keep every card, but return all of them to the Inbox and erase their study progress.</p>\n"
+              "          </div>\n"
+              "          <button id=\"reset-deck\" class=\"button button-secondary\" type=\"button\">Reset all cards to Inbox</button>\n"
+              "        </section>\n\n"
+              "        <section class=\"panel danger-panel\">\n"
+              "          <div>\n"
+              "            <h3>Start over</h3>\n"
+              "            <p>Remove every card from this browser.</p>\n"
+              "          </div>\n"
+              "          <button id=\"clear-deck\" class=\"button button-danger\" type=\"button\">Delete all cards</button>\n"
+              "        </section>",
           )
 
           replace_once(
               "tests/core.test.js",
-              '''test("normalizes a simple array import and alternative side names", () => {''',
-              '''test("reset all returns every card to the Inbox while preserving card text", () => {
-            const cards = [
-              cardInBox(2, TODAY, { id: "one", front: "One", back: "Uno" }),
-              cardInBox(5, "2026-09-09", { id: "two", front: "Two", back: "Dos" }),
-              { ...Core.createCard("Three", "Tres", NOW), id: "three" },
-            ];
-
-            const reset = Core.resetAllCards(cards, NOW);
-            assert.equal(reset.length, 3);
-            assert.deepEqual(reset.map((card) => card.box), [0, 0, 0]);
-            assert.deepEqual(reset.map((card) => card.dueDate), [null, null, null]);
-            assert.deepEqual(reset.map((card) => card.reviewCount), [0, 0, 0]);
-            assert.deepEqual(reset.map((card) => [card.front, card.back]), [
-              ["One", "Uno"],
-              ["Two", "Dos"],
-              ["Three", "Tres"],
-            ]);
-          });
-
-          test("normalizes a simple array import and alternative side names", () => {''',
+              "test(\"normalizes a simple array import and alternative side names\", () => {",
+              "test(\"reset all returns every card to the Inbox while preserving card text\", () => {\n"
+              "  const cards = [\n"
+              "    cardInBox(2, TODAY, { id: \"one\", front: \"One\", back: \"Uno\" }),\n"
+              "    cardInBox(5, \"2026-09-09\", { id: \"two\", front: \"Two\", back: \"Dos\" }),\n"
+              "    { ...Core.createCard(\"Three\", \"Tres\", NOW), id: \"three\" },\n"
+              "  ];\n\n"
+              "  const reset = Core.resetAllCards(cards, NOW);\n"
+              "  assert.equal(reset.length, 3);\n"
+              "  assert.deepEqual(reset.map((card) => card.box), [0, 0, 0]);\n"
+              "  assert.deepEqual(reset.map((card) => card.dueDate), [null, null, null]);\n"
+              "  assert.deepEqual(reset.map((card) => card.reviewCount), [0, 0, 0]);\n"
+              "  assert.deepEqual(reset.map((card) => [card.front, card.back]), [\n"
+              "    [\"One\", \"Uno\"],\n"
+              "    [\"Two\", \"Dos\"],\n"
+              "    [\"Three\", \"Tres\"],\n"
+              "  ]);\n"
+              "});\n\n"
+              "test(\"normalizes a simple array import and alternative side names\", () => {",
           )
 
           replace_once(
               "README.md",
-              '''- **Load deck from file** replaces the current browser deck with a selected backup.
-          - No card data is sent to a server.''',
-              '''- **Load deck from file** replaces the current browser deck with a selected backup.
-          - **Reset all cards to Inbox** keeps the cards but erases all study progress and returns every card to the Inbox.
-          - No card data is sent to a server.''',
+              "- **Load deck from file** replaces the current browser deck with a selected backup.\n- No card data is sent to a server.",
+              "- **Load deck from file** replaces the current browser deck with a selected backup.\n- **Reset all cards to Inbox** keeps the cards but erases all study progress and returns every card to the Inbox.\n- No card data is sent to a server.",
           )
 
       - name: Verify application

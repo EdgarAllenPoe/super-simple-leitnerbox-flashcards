@@ -2,6 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const Core = require("../core.js");
 
 const NOW = new Date("2026-08-24T12:00:00.000Z");
@@ -24,11 +26,17 @@ function cardInBox(box, dueDate, overrides = {}) {
   };
 }
 
-test("uses the fixed five-box schedule and four rating keys", () => {
-  assert.deepEqual(Core.BOX_INTERVAL_DAYS, { 1: 1, 2: 2, 3: 4, 4: 8, 5: 16 });
+test("uses the fixed five-box schedule and conversational responses", () => {
+  assert.deepEqual(Core.BOX_INTERVAL_DAYS, { 1: 1, 2: 3, 3: 7, 4: 15, 5: 30 });
   assert.equal(Core.INBOX_PROMOTION_COUNT, 5);
   assert.deepEqual(Core.RATING_ORDER, ["again", "hard", "good", "easy"]);
   assert.deepEqual(Core.RATING_KEYS, { 1: "again", 2: "hard", 3: "good", 4: "easy" });
+  assert.deepEqual(Core.RATING_LABELS, {
+    again: "I forgot",
+    hard: "I had to think",
+    good: "I knew it",
+    easy: "Too easy",
+  });
 });
 
 test("adds calendar days safely", () => {
@@ -51,7 +59,7 @@ test("four ratings place new cards into the intended entry boxes", () => {
     again: [1, "2026-08-25"],
     hard: [1, "2026-08-25"],
     good: [1, "2026-08-25"],
-    easy: [2, "2026-08-26"],
+    easy: [2, "2026-08-27"],
   };
 
   for (const [rating, [expectedBox, expectedDue]] of Object.entries(expected)) {
@@ -74,10 +82,10 @@ test("Again returns every reviewed card to Box 1", () => {
 test("Hard keeps a reviewed card in its current box", () => {
   const cases = [
     [1, "2026-08-25"],
-    [2, "2026-08-26"],
-    [3, "2026-08-28"],
-    [4, "2026-09-01"],
-    [5, "2026-09-09"],
+    [2, "2026-08-27"],
+    [3, "2026-08-31"],
+    [4, "2026-09-08"],
+    [5, "2026-09-23"],
   ];
 
   for (const [box, expectedDue] of cases) {
@@ -89,11 +97,11 @@ test("Hard keeps a reviewed card in its current box", () => {
 
 test("Good advances one box and uses the destination interval", () => {
   const cases = [
-    [1, 2, "2026-08-26"],
-    [2, 3, "2026-08-28"],
-    [3, 4, "2026-09-01"],
-    [4, 5, "2026-09-09"],
-    [5, 5, "2026-09-09"],
+    [1, 2, "2026-08-27"],
+    [2, 3, "2026-08-31"],
+    [3, 4, "2026-09-08"],
+    [4, 5, "2026-09-23"],
+    [5, 5, "2026-09-23"],
   ];
 
   for (const [startBox, expectedBox, expectedDue] of cases) {
@@ -105,11 +113,11 @@ test("Good advances one box and uses the destination interval", () => {
 
 test("Easy advances two boxes and stops at Box 5", () => {
   const cases = [
-    [1, 3, "2026-08-28"],
-    [2, 4, "2026-09-01"],
-    [3, 5, "2026-09-09"],
-    [4, 5, "2026-09-09"],
-    [5, 5, "2026-09-09"],
+    [1, 3, "2026-08-31"],
+    [2, 4, "2026-09-08"],
+    [3, 5, "2026-09-23"],
+    [4, 5, "2026-09-23"],
+    [5, 5, "2026-09-23"],
   ];
 
   for (const [startBox, expectedBox, expectedDue] of cases) {
@@ -135,7 +143,7 @@ test("boolean ratings remain compatible with older callers", () => {
 test("rejects unknown ratings", () => {
   assert.throws(
     () => Core.answerCard(cardInBox(2, TODAY), "perfect", TODAY, NOW),
-    /Again, Hard, Good, or Easy/,
+    /four supported responses/,
   );
 });
 
@@ -221,6 +229,29 @@ test("reset all returns every card to the Inbox while preserving card text", () 
     ["Two", "Dos"],
     ["Three", "Tres"],
   ]);
+});
+
+test("response buttons use conversational text and show only their key numbers", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  const responses = [
+    ["again", Core.RATING_LABELS.again, "1"],
+    ["hard", Core.RATING_LABELS.hard, "2"],
+    ["good", Core.RATING_LABELS.good, "3"],
+    ["easy", Core.RATING_LABELS.easy, "4"],
+  ];
+
+  for (const [rating, label, key] of responses) {
+    const match = html.match(
+      new RegExp(`<button[^>]*data-rating="${rating}"[^>]*>([\\s\\S]*?)</button>`),
+    );
+    assert.ok(match, `Missing ${rating} response button.`);
+    assert.ok(match[1].includes(`<strong>${label}</strong>`), `${rating} label`);
+    assert.match(match[1], new RegExp(`<span>\\s*${key}\\s*</span>`));
+    assert.doesNotMatch(match[1], /Box|Stay|Advance|Return/);
+  }
+
+  assert.match(app, /boxIntervalsDays: Object\.values\(Core\.BOX_INTERVAL_DAYS\)/);
 });
 
 test("normalizes a simple array import and alternative side names", () => {

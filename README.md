@@ -12,24 +12,24 @@ New cards begin in an **Inbox** and never enter Study automatically. The Inbox t
 
 The learner may study **Side A first** or **Side B first**. That choice is remembered in the current browser.
 
-After revealing the other side, one of four ratings is selected. The buttons immediately advance to the next card and are also bound to the number keys.
+After revealing the other side, the learner chooses one of four conversational responses. The buttons immediately advance to the next card and are also bound to the number keys.
 
-| Key | Rating | What happens |
+| Key | Response | What happens |
 |---:|---|---|
-| 1 | Again | The card returns to Box 1. |
-| 2 | Hard | The card stays in its current box. |
-| 3 | Good | The card advances one box. |
-| 4 | Easy | The card advances two boxes. |
+| 1 | I forgot | The card returns to Box 1. |
+| 2 | I had to think | The card stays in its current box. |
+| 3 | I knew it | The card advances one box. |
+| 4 | Too easy | The card advances two boxes. |
 
-Cards never move beyond Box 5. Every rating schedules the next review using the interval of the destination box.
+Cards never move beyond Box 5. Every response schedules the next review using the interval of the destination box.
 
 | Box | Review interval |
 |---|---:|
 | 1 | 1 day |
-| 2 | 2 days |
-| 3 | 4 days |
-| 4 | 8 days |
-| 5 | 16 days |
+| 2 | 3 days |
+| 3 | 7 days |
+| 4 | 15 days |
+| 5 | 30 days |
 
 ## Storage
 
@@ -44,10 +44,10 @@ Browser storage belongs to one browser profile on one device. Use backup files w
 ## Keyboard controls
 
 - **Space** or **Enter**: reveal the other side
-- **1**: Again
-- **2**: Hard
-- **3**: Good
-- **4**: Easy
+- **1**: I forgot
+- **2**: I had to think
+- **3**: I knew it
+- **4**: Too easy
 
 ## Local development
 

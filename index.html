@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#334155">
-  <meta name="description" content="A simple five-box Leitner flashcard app with four response grades and reversible card sides.">
+  <meta name="description" content="A simple five-box Leitner flashcard app with conversational responses and reversible card sides.">
   <title>Simple Leitner Flashcards</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -37,22 +37,22 @@
       <div class="box-stat">
         <span class="box-name">Box 2</span>
         <strong id="box-count-2">0</strong>
-        <span class="box-detail">2 days</span>
+        <span class="box-detail">3 days</span>
       </div>
       <div class="box-stat">
         <span class="box-name">Box 3</span>
         <strong id="box-count-3">0</strong>
-        <span class="box-detail">4 days</span>
+        <span class="box-detail">7 days</span>
       </div>
       <div class="box-stat">
         <span class="box-name">Box 4</span>
         <strong id="box-count-4">0</strong>
-        <span class="box-detail">8 days</span>
+        <span class="box-detail">15 days</span>
       </div>
       <div class="box-stat">
         <span class="box-name">Box 5</span>
         <strong id="box-count-5">0</strong>
-        <span class="box-detail">16 days</span>
+        <span class="box-detail">30 days</span>
       </div>
     </section>
 
@@ -99,22 +99,22 @@
             <button id="show-answer" class="button button-primary button-large" type="button">Show Side B</button>
           </div>
 
-          <div id="grade-actions" class="grade-actions" hidden aria-label="Rate your answer">
-            <button class="button button-again button-large" type="button" data-rating="again">
-              <strong>Again</strong>
-              <span>1 · Return to Box 1</span>
+          <div id="grade-actions" class="grade-actions" hidden aria-label="How well did you remember?">
+            <button class="button button-again button-large" type="button" data-rating="again" aria-keyshortcuts="1">
+              <strong>I forgot</strong>
+              <span>1</span>
             </button>
-            <button class="button button-hard button-large" type="button" data-rating="hard">
-              <strong>Hard</strong>
-              <span>2 · Stay in this box</span>
+            <button class="button button-hard button-large" type="button" data-rating="hard" aria-keyshortcuts="2">
+              <strong>I had to think</strong>
+              <span>2</span>
             </button>
-            <button class="button button-good button-large" type="button" data-rating="good">
-              <strong>Good</strong>
-              <span>3 · Advance one box</span>
+            <button class="button button-good button-large" type="button" data-rating="good" aria-keyshortcuts="3">
+              <strong>I knew it</strong>
+              <span>3</span>
             </button>
-            <button class="button button-easy button-large" type="button" data-rating="easy">
-              <strong>Easy</strong>
-              <span>4 · Advance two boxes</span>
+            <button class="button button-easy button-large" type="button" data-rating="easy" aria-keyshortcuts="4">
+              <strong>Too easy</strong>
+              <span>4</span>
             </button>
           </div>
         </div>
@@ -227,7 +227,7 @@
 
   <footer class="site-footer">
     <div class="shell">
-      <p>Inbox cards do not enter Study automatically. Use the Inbox button to move five at a time into Box 1. Again returns a card to Box 1; Hard stays; Good advances one; Easy advances two.</p>
+      <p>After revealing a card, choose “I forgot,” “I had to think,” “I knew it,” or “Too easy”—or press keys 1–4.</p>
     </div>
   </footer>
 

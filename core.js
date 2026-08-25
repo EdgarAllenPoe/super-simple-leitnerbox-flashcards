@@ -15,10 +15,10 @@
   const INBOX_PROMOTION_COUNT = 5;
   const BOX_INTERVAL_DAYS = Object.freeze({
     1: 1,
-    2: 2,
-    3: 4,
-    4: 8,
-    5: 16,
+    2: 3,
+    3: 7,
+    4: 15,
+    5: 30,
   });
   const RATING_ORDER = Object.freeze(["again", "hard", "good", "easy"]);
   const RATING_KEYS = Object.freeze({
@@ -26,6 +26,13 @@
     2: "hard",
     3: "good",
     4: "easy",
+  });
+
+  const RATING_LABELS = Object.freeze({
+    again: "I forgot",
+    hard: "I had to think",
+    good: "I knew it",
+    easy: "Too easy",
   });
 
   function pad2(value) {
@@ -101,7 +108,7 @@
 
     const rating = cleanText(value).toLowerCase();
     if (!RATING_ORDER.includes(rating)) {
-      throw new TypeError("Rating must be Again, Hard, Good, or Easy.");
+      throw new TypeError("Rating must be one of the four supported responses.");
     }
     return rating;
   }
@@ -405,6 +412,7 @@
     BOX_INTERVAL_DAYS,
     RATING_ORDER,
     RATING_KEYS,
+    RATING_LABELS,
     localDateString,
     addDays,
     normalizeRating,

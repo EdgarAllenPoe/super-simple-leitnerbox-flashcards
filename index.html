@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#334155">
-  <meta name="description" content="A simple five-box Leitner flashcard app that stores your cards in your browser.">
+  <meta name="description" content="A simple five-box Leitner flashcard app with four response grades and reversible card sides.">
   <title>Simple Leitner Flashcards</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -72,26 +72,49 @@
           <button id="refresh-study" class="button button-quiet" type="button">Refresh session</button>
         </div>
 
+        <fieldset class="study-direction panel">
+          <legend>Which side should appear first?</legend>
+          <div class="direction-options">
+            <label>
+              <input type="radio" name="study-direction" value="a-to-b" checked>
+              <span>Side A first</span>
+            </label>
+            <label>
+              <input type="radio" name="study-direction" value="b-to-a">
+              <span>Side B first</span>
+            </label>
+          </div>
+          <p>The choice is remembered in this browser.</p>
+        </fieldset>
+
         <div id="study-card-area" class="study-card-area" hidden>
           <p id="session-progress" class="session-progress"></p>
           <button id="flashcard" class="flashcard" type="button" aria-describedby="card-instruction">
             <span id="card-side-label" class="card-side-label">Side A</span>
             <span id="card-text" class="card-text"></span>
           </button>
-          <p id="card-instruction" class="card-instruction">Select the card or press Space to show Side B.</p>
+          <p id="card-instruction" class="card-instruction">Select the card or press Space to show the other side.</p>
 
           <div id="reveal-actions" class="center-actions">
             <button id="show-answer" class="button button-primary button-large" type="button">Show Side B</button>
           </div>
 
-          <div id="grade-actions" class="grade-actions" hidden>
-            <button id="mark-again" class="button button-again button-large" type="button">
-              Again
-              <span>Press 1</span>
+          <div id="grade-actions" class="grade-actions" hidden aria-label="Rate your answer">
+            <button class="button button-again button-large" type="button" data-rating="again">
+              <strong>Again</strong>
+              <span>1 · Return to Box 1</span>
             </button>
-            <button id="mark-correct" class="button button-correct button-large" type="button">
-              Got it
-              <span>Press 2</span>
+            <button class="button button-hard button-large" type="button" data-rating="hard">
+              <strong>Hard</strong>
+              <span>2 · Stay in this box</span>
+            </button>
+            <button class="button button-good button-large" type="button" data-rating="good">
+              <strong>Good</strong>
+              <span>3 · Advance one box</span>
+            </button>
+            <button class="button button-easy button-large" type="button" data-rating="easy">
+              <strong>Easy</strong>
+              <span>4 · Advance two boxes</span>
             </button>
           </div>
         </div>
@@ -196,7 +219,7 @@
 
   <footer class="site-footer">
     <div class="shell">
-      <p>Correct answers move cards forward. “Again” returns a card to Box 1. Up to 10 Inbox cards enter the system each day.</p>
+      <p>Again returns a card to Box 1. Hard keeps its box. Good advances one box. Easy advances two. Up to 10 Inbox cards enter the system each day.</p>
     </div>
   </footer>
 

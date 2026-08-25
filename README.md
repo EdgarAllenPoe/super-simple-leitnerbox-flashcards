@@ -10,12 +10,18 @@ A small, dependency-free flashcard website for GitHub Pages. Cards contain plain
 
 New cards begin in an **Inbox**. A study session introduces up to **10 new cards per day**, after all cards that are due have been placed in the queue.
 
-| Result | What happens |
-|---|---|
-| Got it | The card moves to the next box. A card in Box 5 remains in Box 5. |
-| Again | The card returns to Box 1. |
+The learner may study **Side A first** or **Side B first**. That choice is remembered in the current browser.
 
-The schedule is fixed:
+After revealing the other side, one of four ratings is selected. The buttons immediately advance to the next card and are also bound to the number keys.
+
+| Key | Rating | What happens |
+|---:|---|---|
+| 1 | Again | The card returns to Box 1. |
+| 2 | Hard | The card stays in its current box. A new card enters Box 1. |
+| 3 | Good | The card advances one box. A new card enters Box 1. |
+| 4 | Easy | The card advances two boxes. A new card enters Box 2. |
+
+Cards never move beyond Box 5. Every rating schedules the next review using the interval of the destination box.
 
 | Box | Review interval |
 |---|---:|
@@ -27,7 +33,7 @@ The schedule is fixed:
 
 ## Storage
 
-- Every change is automatically stored in the browser with `localStorage`.
+- Every deck change is automatically stored in the browser with `localStorage`.
 - **Save deck to file** downloads a JSON backup containing the cards and all study progress.
 - **Load deck from file** replaces the current browser deck with a selected backup.
 - No card data is sent to a server.
@@ -36,9 +42,11 @@ Browser storage belongs to one browser profile on one device. Use backup files w
 
 ## Keyboard controls
 
-- **Space** or **Enter**: show Side B
+- **Space** or **Enter**: reveal the other side
 - **1**: Again
-- **2**: Got it
+- **2**: Hard
+- **3**: Good
+- **4**: Easy
 
 ## Local development
 
